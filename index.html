@@ -1,0 +1,3230 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+    <title>PJ's Flag fight</title>
+    <meta name="description" content="Country Flag Elimination Battle Arena with physics, procedural Web Audio, continent filter, and session tracking." />
+    <meta property="og:title" content="PJ's Flag fight" />
+    <meta property="og:description" content="Country Flag Elimination Battle Arena with physics, procedural Web Audio, continent filter, and session tracking." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+
+    <!-- Google Fonts for Bubbly Curved Title & HUD -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@600;700;800;900&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+    <style>
+      :root {
+        --sky-top: #7bc5f8;
+        --sky-mid: #a0d8ff;
+        --sky-bottom: #cdeaff;
+        --ring-border: #ffffff;
+        --ring-shadow: rgba(30, 110, 200, 0.25);
+        --accent-green: #22c55e;
+        --accent-green-hover: #16a34a;
+        --accent-red: #ef4444;
+        --accent-red-hover: #dc2626;
+        --font-bubble: 'Fredoka', cursive, sans-serif;
+        --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+      }
+
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+        user-select: none;
+        -webkit-user-select: none;
+        -webkit-tap-highlight-color: transparent;
+      }
+
+      html, body {
+        width: 100%;
+        height: 100%;
+        overflow: hidden;
+        background: #0f172a;
+        font-family: var(--font-sans);
+        color: #0f172a;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      /* Viewport Wrapper: Fixed 9:16 Mobile Aspect Ratio (1080x1920) across all devices */
+      .app-viewport {
+        position: relative;
+        aspect-ratio: 9 / 16;
+        width: 100%;
+        max-width: min(100vw, calc(100vh * 9 / 16));
+        height: 100%;
+        max-height: 100vh;
+        margin: auto;
+        display: flex;
+        flex-direction: column;
+        background: linear-gradient(180deg, var(--sky-top) 0%, var(--sky-mid) 45%, var(--sky-bottom) 100%);
+        box-shadow: 0 25px 60px -12px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.15);
+        overflow: hidden;
+      }
+
+      @media (min-width: 500px) and (min-height: 600px) {
+        .app-viewport {
+          border-radius: 28px;
+          height: min(96vh, 920px);
+          width: min(calc(96vh * 9 / 16), calc(920px * 9 / 16));
+          box-shadow: 0 30px 70px -15px rgba(0, 0, 0, 0.8), 0 0 0 2px rgba(255, 255, 255, 0.18);
+        }
+      }
+
+      /* Ambient Floating Clouds */
+      .cloud-bg {
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        overflow: hidden;
+        z-index: 1;
+        opacity: 0.65;
+      }
+      .cloud {
+        position: absolute;
+        background: rgba(255, 255, 255, 0.85);
+        border-radius: 999px;
+        filter: blur(1px);
+        animation: drift linear infinite;
+      }
+      .cloud::before, .cloud::after {
+        content: '';
+        position: absolute;
+        background: inherit;
+        border-radius: 50%;
+      }
+      .cloud-1 {
+        width: 110px; height: 34px; top: 12%; left: -120px;
+        animation-duration: 32s;
+      }
+      .cloud-1::before { width: 44px; height: 44px; top: -18px; left: 18px; }
+      .cloud-1::after { width: 34px; height: 34px; top: -12px; left: 52px; }
+
+      .cloud-2 {
+        width: 150px; height: 42px; top: 48%; left: -160px;
+        animation-duration: 44s;
+        animation-delay: -18s;
+        opacity: 0.5;
+      }
+      .cloud-2::before { width: 56px; height: 56px; top: -24px; left: 24px; }
+      .cloud-2::after { width: 42px; height: 42px; top: -16px; left: 74px; }
+
+      .cloud-3 {
+        width: 90px; height: 28px; top: 78%; left: -100px;
+        animation-duration: 38s;
+        animation-delay: -8s;
+        opacity: 0.6;
+      }
+      .cloud-3::before { width: 36px; height: 36px; top: -14px; left: 16px; }
+      .cloud-3::after { width: 28px; height: 28px; top: -10px; left: 44px; }
+
+      @keyframes drift {
+        from { transform: translateX(0); }
+        to { transform: translateX(650px); }
+      }
+
+      /* Top Header Zone */
+      header.app-header {
+        position: relative;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 10px 4px 10px;
+        gap: 6px;
+      }
+
+      /* Top Header Zone */
+      header.app-header {
+        position: relative;
+        z-index: 30;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 8px 12px 4px 12px;
+        gap: 8px;
+      }
+
+      /* Left: Continent Filter Dropdown Button */
+      .continent-dropdown-wrap {
+        position: relative;
+        flex-shrink: 0;
+      }
+
+      /* Balanced Top Navigation Buttons: Identical Height (35px), Padding, Font Size, and Proportions */
+      .btn-continent,
+      .btn-session {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+        height: 35px;
+        min-height: 35px;
+        padding: 0 13px;
+        border-radius: 999px;
+        font-family: var(--font-sans);
+        font-size: 11.5px;
+        font-weight: 800;
+        cursor: pointer;
+        border: 2px solid rgba(255, 255, 255, 0.95);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.7);
+        transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+        white-space: nowrap;
+        box-sizing: border-box;
+      }
+
+      .btn-continent {
+        background: rgba(255, 255, 255, 0.95);
+        color: #1e3a8a;
+      }
+      .btn-continent:hover {
+        background: #ffffff;
+        transform: translateY(-1px);
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
+      }
+      .btn-continent:active {
+        transform: translateY(1px);
+      }
+      .btn-continent .badge-count {
+        background: #2563eb;
+        color: #ffffff;
+        font-size: 10px;
+        font-weight: 800;
+        padding: 1.5px 6px;
+        border-radius: 999px;
+      }
+
+      /* Continent Checklist Dropdown Menu */
+      .continent-menu {
+        position: absolute;
+        top: calc(100% + 8px);
+        left: 0;
+        width: 240px;
+        background: rgba(255, 255, 255, 0.98);
+        border-radius: 18px;
+        box-shadow: 0 20px 40px rgba(15, 23, 42, 0.22), 0 0 0 1px rgba(0, 0, 0, 0.06);
+        padding: 12px;
+        display: none;
+        flex-direction: column;
+        gap: 8px;
+        z-index: 100;
+        animation: popupScale 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      .continent-menu.open {
+        display: flex;
+      }
+      @keyframes popupScale {
+        from { opacity: 0; transform: scale(0.92) translateY(-6px); }
+        to { opacity: 1; transform: scale(1) translateY(0); }
+      }
+      .menu-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding-bottom: 6px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+      }
+      .menu-title {
+        font-size: 12px;
+        font-weight: 800;
+        color: #1e293b;
+      }
+      .btn-toggle-all {
+        background: none;
+        border: none;
+        color: #2563eb;
+        font-size: 11px;
+        font-weight: 700;
+        cursor: pointer;
+        text-decoration: underline;
+        padding: 2px 4px;
+      }
+      .btn-toggle-all:hover {
+        color: #1d4ed8;
+      }
+      .continent-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 240px;
+        overflow-y: auto;
+      }
+      .continent-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12.5px;
+        font-weight: 600;
+        color: #334155;
+        cursor: pointer;
+        padding: 4px 6px;
+        border-radius: 8px;
+        transition: background 0.12s;
+      }
+      .continent-label:hover {
+        background: #f1f5f9;
+      }
+      .continent-label input[type="checkbox"] {
+        width: 16px;
+        height: 16px;
+        accent-color: #2563eb;
+        cursor: pointer;
+      }
+      .continent-count-pill {
+        margin-left: auto;
+        font-size: 10.5px;
+        color: #64748b;
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* Center: Prominent Enlarged Curved Bubble Logo */
+      .logo-center {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 1;
+        min-width: 0;
+        text-align: center;
+        padding: 0 4px;
+      }
+      .curved-logo-svg {
+        width: 100%;
+        max-width: 205px;
+        height: 56px;
+        overflow: visible;
+        filter: drop-shadow(0 4px 8px rgba(14, 53, 107, 0.28));
+        transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      .curved-logo-svg:hover {
+        transform: scale(1.04) rotate(-1deg);
+      }
+
+      /* Right: Session Control Button */
+      .session-controls {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        flex-shrink: 0;
+      }
+
+      .btn-session {
+        min-width: 82px;
+        color: #ffffff;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .btn-session.start {
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+      }
+      .btn-session.start:hover {
+        background: linear-gradient(135deg, #2ecc71 0%, #15803d 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(34, 197, 94, 0.45);
+      }
+      .btn-session.stop {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+      }
+      .btn-session.stop:hover {
+        background: linear-gradient(135deg, #f87171 0%, #b91c1c 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(239, 68, 68, 0.45);
+      }
+      .btn-session:active {
+        transform: translateY(1px);
+      }
+
+      /* Secondary HUD Bar: Stats & Audio Mute */
+      .hud-subbar {
+        position: relative;
+        z-index: 20;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 4px 16px 4px 16px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #1e3a8a;
+      }
+      .hud-pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: rgba(255, 255, 255, 0.65);
+        padding: 3px 9px;
+        border-radius: 999px;
+        backdrop-filter: blur(4px);
+        -webkit-backdrop-filter: blur(4px);
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+        font-variant-numeric: tabular-nums;
+      }
+      .hud-pill .label {
+        color: #475569;
+        font-weight: 600;
+      }
+      .hud-pill .value {
+        color: #0f172a;
+        font-weight: 800;
+      }
+      .btn-mute {
+        background: rgba(255, 255, 255, 0.65);
+        border: none;
+        border-radius: 999px;
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 12px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+        transition: transform 0.15s, background 0.15s;
+        flex-shrink: 0;
+      }
+      .btn-mute:hover {
+        transform: scale(1.1);
+        background: #ffffff;
+      }
+      .btn-hud-tool {
+        background: rgba(255, 255, 255, 0.75);
+        border: 1px solid rgba(255, 255, 255, 0.9);
+        border-radius: 999px;
+        padding: 3px 8px;
+        font-family: var(--font-sans);
+        font-size: 11px;
+        font-weight: 800;
+        color: #1e3a8a;
+        cursor: pointer;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.04);
+        transition: transform 0.15s, background 0.15s;
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+        flex-shrink: 0;
+      }
+      .btn-hud-tool:hover {
+        background: #ffffff;
+        transform: scale(1.05);
+      }
+      .hud-pill.fav {
+        background: rgba(254, 240, 138, 0.85);
+        border: 1px solid rgba(250, 204, 21, 0.9);
+        color: #854d0e;
+      }
+
+      /* Arena Container & Canvas */
+      .arena-wrap {
+        position: relative;
+        flex: 1;
+        width: 100%;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 10;
+        padding: 0;
+        min-height: 0;
+        overflow: hidden;
+      }
+
+      #gameCanvas {
+        display: block;
+        width: 100%;
+        height: 100%;
+        touch-action: none;
+      }
+
+      /* Winner Celebration Banner Overlay */
+      .winner-banner-wrap {
+        position: absolute;
+        top: 26%;
+        left: 50%;
+        transform: translate(-50%, -50%) scale(0.7);
+        opacity: 0;
+        pointer-events: none;
+        z-index: 50;
+        transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        width: 90%;
+      }
+      .winner-banner-wrap.visible {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 1;
+      }
+      .winner-trophy {
+        font-size: 34px;
+        filter: drop-shadow(0 4px 8px rgba(0,0,0,0.25));
+        animation: trophyBounce 0.8s ease-in-out infinite alternate;
+      }
+      @keyframes trophyBounce {
+        from { transform: translateY(0) scale(1); }
+        to { transform: translateY(-6px) scale(1.08); }
+      }
+      .winner-banner {
+        background: linear-gradient(135deg, #fef08a 0%, #facc15 50%, #eab308 100%);
+        border: 3px solid #ffffff;
+        color: #78350f;
+        padding: 8px 20px;
+        border-radius: 999px;
+        font-family: var(--font-bubble);
+        font-size: 17px;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        box-shadow: 0 10px 25px rgba(234, 179, 8, 0.5), inset 0 2px 0 rgba(255, 255, 255, 0.8);
+        text-shadow: 0 1px 1px rgba(255, 255, 255, 0.6);
+        white-space: nowrap;
+      }
+      .winner-countdown {
+        margin-top: 6px;
+        font-size: 11.5px;
+        font-weight: 700;
+        color: #1e3a8a;
+        background: rgba(255, 255, 255, 0.8);
+        padding: 3px 10px;
+        border-radius: 999px;
+      }
+
+      /* Elimination Message Zone: Strictly between arena ring bottom and bottom dock */
+      .elimination-zone {
+        position: relative;
+        z-index: 25;
+        height: 38px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        pointer-events: none;
+      }
+      .elimination-toast {
+        position: absolute;
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        padding: 5px 14px;
+        border-radius: 999px;
+        font-size: 12px;
+        font-weight: 700;
+        box-shadow: 0 6px 16px rgba(0, 0, 0, 0.2);
+        opacity: 0;
+        transform: translateY(14px) scale(0.9);
+        animation: toastFloat 1.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      }
+      @keyframes toastFloat {
+        0% { opacity: 0; transform: translateY(14px) scale(0.9); }
+        15% { opacity: 1; transform: translateY(0px) scale(1); }
+        75% { opacity: 1; transform: translateY(-4px) scale(1); }
+        100% { opacity: 0; transform: translateY(-18px) scale(0.95); }
+      }
+
+      /* Bottom Dock: Eliminated Flags Graveyard */
+      .dock-zone {
+        position: relative;
+        z-index: 20;
+        padding: 8px 12px 10px 12px;
+        background: rgba(255, 255, 255, 0.75);
+        border-top: 1.5px solid rgba(255, 255, 255, 0.9);
+        backdrop-filter: blur(8px);
+        -webkit-backdrop-filter: blur(8px);
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+      }
+      .dock-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-size: 10.5px;
+        font-weight: 800;
+        color: #475569;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .dock-header .dock-count {
+        color: #2563eb;
+        font-variant-numeric: tabular-nums;
+      }
+      .dock-scroll {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        overflow-x: auto;
+        padding: 4px 2px;
+        scrollbar-width: thin;
+      }
+      .dock-scroll::-webkit-scrollbar {
+        height: 4px;
+      }
+      .dock-scroll::-webkit-scrollbar-thumb {
+        background: rgba(0, 0, 0, 0.15);
+        border-radius: 999px;
+      }
+      .dock-empty-hint {
+        font-size: 11px;
+        color: #64748b;
+        font-style: italic;
+        padding: 4px 0;
+      }
+      .dock-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        background: #ffffff;
+        border: 1px solid #cbd5e1;
+        padding: 3px 8px;
+        border-radius: 999px;
+        font-size: 11px;
+        font-weight: 700;
+        color: #1e293b;
+        white-space: nowrap;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+        animation: chipPop 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+      }
+      @keyframes chipPop {
+        from { transform: scale(0.6); opacity: 0; }
+        to { transform: scale(1); opacity: 1; }
+      }
+      .dock-chip .chip-rank {
+        color: #94a3b8;
+        font-size: 9.5px;
+      }
+
+      /* Session Summary Modal */
+      .modal-backdrop {
+        position: absolute;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.72);
+        backdrop-filter: blur(6px);
+        -webkit-backdrop-filter: blur(6px);
+        z-index: 200;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 16px;
+        animation: fadeIn 0.2s ease;
+      }
+      .modal-backdrop.open {
+        display: flex;
+      }
+      @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
+      }
+      .modal-card {
+        background: #ffffff;
+        width: 100%;
+        max-width: 390px;
+        border-radius: 24px;
+        padding: 22px 20px 20px 20px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.35);
+        display: flex;
+        flex-direction: column;
+        gap: 16px;
+        animation: cardPop 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+      }
+      @keyframes cardPop {
+        from { transform: scale(0.9) translateY(10px); opacity: 0; }
+        to { transform: scale(1) translateY(0); opacity: 1; }
+      }
+      .modal-header-block {
+        text-align: center;
+      }
+      .modal-title {
+        font-family: var(--font-bubble);
+        font-size: 24px;
+        color: #0f172a;
+        margin-bottom: 4px;
+      }
+      .modal-subtitle {
+        font-size: 12.5px;
+        color: #64748b;
+      }
+      .modal-stats-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 10px;
+      }
+      .stat-tile {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 14px;
+        padding: 10px 12px;
+        text-align: center;
+      }
+      .stat-tile-label {
+        font-size: 11px;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+      }
+      .stat-tile-value {
+        font-size: 20px;
+        font-weight: 800;
+        color: #0f172a;
+        margin-top: 2px;
+        font-variant-numeric: tabular-nums;
+      }
+      .leaderboard-wrap {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+      .leaderboard-title {
+        font-size: 12.5px;
+        font-weight: 800;
+        color: #334155;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+      }
+      .leaderboard-list {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+        max-height: 220px;
+        overflow-y: auto;
+        padding-right: 2px;
+      }
+      .leaderboard-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        padding: 7px 12px;
+        border-radius: 12px;
+        font-size: 12.5px;
+        font-weight: 600;
+      }
+      .leaderboard-row.rank-1 {
+        background: #fefce8;
+        border-color: #fde047;
+      }
+      .leaderboard-rank {
+        font-weight: 800;
+        font-size: 12px;
+        color: #64748b;
+        width: 22px;
+      }
+      .leaderboard-row.rank-1 .leaderboard-rank {
+        color: #ca8a04;
+      }
+      .leaderboard-flag {
+        font-size: 18px;
+        line-height: 1;
+      }
+      .leaderboard-name {
+        flex: 1;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+      }
+      .leaderboard-wins {
+        font-weight: 800;
+        color: #2563eb;
+        font-variant-numeric: tabular-nums;
+      }
+      .leaderboard-empty {
+        font-size: 12px;
+        color: #94a3b8;
+        text-align: center;
+        padding: 18px 0;
+      }
+      .modal-buttons-row {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin-top: 4px;
+      }
+      .btn-modal-continue {
+        flex: 1.2;
+        background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+        color: #ffffff;
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        font-weight: 800;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 4px 14px rgba(34, 197, 94, 0.35);
+        transition: transform 0.15s, background 0.15s, box-shadow 0.15s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 6px;
+      }
+      .btn-modal-continue:hover {
+        background: linear-gradient(135deg, #2ecc71 0%, #15803d 100%);
+        transform: translateY(-1px);
+        box-shadow: 0 6px 18px rgba(34, 197, 94, 0.45);
+      }
+      .btn-modal-continue:active {
+        transform: translateY(1px);
+      }
+      .btn-modal-okay {
+        flex: 1;
+        background: #f1f5f9;
+        color: #334155;
+        font-family: var(--font-sans);
+        font-size: 13.5px;
+        font-weight: 800;
+        padding: 12px 14px;
+        border-radius: 14px;
+        border: 1px solid #cbd5e1;
+        cursor: pointer;
+        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+        transition: transform 0.15s, background 0.15s;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .btn-modal-okay:hover {
+        background: #e2e8f0;
+        color: #0f172a;
+        transform: translateY(-1px);
+      }
+      .btn-modal-okay:active {
+        transform: translateY(1px);
+      }
+
+      /* Power-up Toast Notification */
+      .powerup-pill {
+        position: absolute;
+        top: 14px;
+        left: 50%;
+        transform: translateX(-50%) translateY(-20px);
+        opacity: 0;
+        pointer-events: none;
+        background: linear-gradient(135deg, #a855f7 0%, #7e22ce 100%);
+        color: #ffffff;
+        border: 2px solid #ffffff;
+        padding: 4px 14px;
+        border-radius: 999px;
+        font-size: 11.5px;
+        font-weight: 800;
+        letter-spacing: 0.3px;
+        box-shadow: 0 8px 20px rgba(126, 34, 206, 0.4);
+        z-index: 60;
+        transition: all 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+        white-space: nowrap;
+      }
+      .powerup-pill.show {
+        transform: translateX(-50%) translateY(0);
+        opacity: 1;
+      }
+    </style>
+  </head>
+  <body data-state="idle">
+    <div class="app-viewport" id="appViewport">
+      <!-- Ambient Clouds Background -->
+      <div class="cloud-bg" aria-hidden="true">
+        <div class="cloud cloud-1"></div>
+        <div class="cloud cloud-2"></div>
+        <div class="cloud cloud-3"></div>
+      </div>
+
+      <!-- Top Header Zone -->
+      <header class="app-header">
+        <!-- Left Controls: Continent / Flags List Filter -->
+        <div class="continent-dropdown-wrap">
+          <button id="continentBtn" class="btn-continent" aria-haspopup="true" aria-expanded="false" title="View flags list & filter by continents">
+            <span>Flags List ▾</span>
+            <span id="continentCountBadge" class="badge-count">7</span>
+          </button>
+
+          <!-- Checklist Menu -->
+          <div id="continentMenu" class="continent-menu" role="menu">
+            <div class="menu-header">
+              <span class="menu-title">Flags List (Continents)</span>
+              <button id="toggleAllBtn" class="btn-toggle-all" type="button">Deselect All</button>
+            </div>
+            <div class="continent-list" id="continentChecklist">
+              <!-- Populated dynamically via JS -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Center: Prominent Enlarged Puffy Curved Bubble Logo -->
+        <div class="logo-center" title="PJ's Flag fight">
+          <svg class="curved-logo-svg" viewBox="0 0 250 68" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <!-- Curved Baseline Path for Arched Text -->
+              <path id="curvePath" d="M 8 54 Q 125 14 242 54" />
+              <!-- Glossy Bubble Gradients -->
+              <linearGradient id="bubbleGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#fffb7d" />
+                <stop offset="30%" stop-color="#ffb703" />
+                <stop offset="65%" stop-color="#fb8500" />
+                <stop offset="100%" stop-color="#e63946" />
+              </linearGradient>
+              <linearGradient id="strokeGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" stop-color="#ffffff" />
+                <stop offset="100%" stop-color="#ffe6a7" />
+              </linearGradient>
+              <filter id="bubbleShadow" x="-10%" y="-10%" width="130%" height="140%">
+                <feDropShadow dx="0" dy="4" stdDeviation="3" flood-color="#023047" flood-opacity="0.38" />
+              </filter>
+            </defs>
+
+            <!-- Decorative Star/Sparkle Left & Right -->
+            <path d="M 14 29 L 17 35 L 23 36 L 18 40 L 20 46 L 14 42 L 8 46 L 10 40 L 5 36 L 11 35 Z" fill="#ffd166" opacity="0.95" />
+            <path d="M 236 29 L 239 35 L 245 36 L 240 40 L 242 46 L 236 42 L 230 46 L 232 40 L 227 36 L 233 35 Z" fill="#ffd166" opacity="0.95" />
+
+            <!-- Puffy Bubble Shadow Layer -->
+            <text font-family="'Fredoka', cursive, sans-serif" font-weight="900" font-size="28" fill="#023047" letter-spacing="1">
+              <textPath href="#curvePath" startOffset="50%" text-anchor="middle">
+                PJ's Flag fight
+              </textPath>
+            </text>
+
+            <!-- Puffy Bubble Outer Stroke Layer -->
+            <text font-family="'Fredoka', cursive, sans-serif" font-weight="900" font-size="28" fill="none" stroke="url(#strokeGrad)" stroke-width="7.5" stroke-linejoin="round" stroke-linecap="round" letter-spacing="1">
+              <textPath href="#curvePath" startOffset="50%" text-anchor="middle">
+                PJ's Flag fight
+              </textPath>
+            </text>
+
+            <!-- Puffy Bubble Main Gradient Fill -->
+            <text font-family="'Fredoka', cursive, sans-serif" font-weight="900" font-size="28" fill="url(#bubbleGrad)" filter="url(#bubbleShadow)" letter-spacing="1">
+              <textPath href="#curvePath" startOffset="50%" text-anchor="middle">
+                PJ's Flag fight
+              </textPath>
+            </text>
+
+            <!-- Glossy Highlight Specks -->
+            <ellipse cx="64" cy="27" rx="3.5" ry="1.8" fill="#ffffff" opacity="0.85" transform="rotate(-15, 64, 27)" />
+            <ellipse cx="125" cy="22" rx="4.5" ry="2.0" fill="#ffffff" opacity="0.9" />
+            <ellipse cx="186" cy="28" rx="3.5" ry="1.8" fill="#ffffff" opacity="0.85" transform="rotate(15, 186, 28)" />
+          </svg>
+        </div>
+
+        <!-- Right: Session Control Button -->
+        <div class="session-controls">
+          <button id="sessionBtn" class="btn-session start" data-start="true" title="Start or Stop session">
+            Start
+          </button>
+        </div>
+      </header>
+
+      <!-- Sub-bar: HUD Info (Timer, Round, Alive, Speed, Mute) -->
+      <div class="hud-subbar">
+        <div class="hud-pill" title="Active Session Timer">
+          <span class="label">⏱️</span>
+          <span id="sessionTimerText" class="value">00:00</span>
+        </div>
+        <div class="hud-pill" title="Current Round">
+          <span class="label">🔄</span>
+          <span id="roundCounterText" class="value">Round 1</span>
+        </div>
+        <div class="hud-pill" title="Flags Remaining in Arena">
+          <span class="label">🏳️</span>
+          <span id="aliveCounterText" class="value">0 alive</span>
+        </div>
+        <div id="favPill" class="hud-pill fav" style="display: none;" title="Your Chosen Champion (tap any flag to change)">
+          <span class="label">⭐</span>
+          <span id="favFlagText" class="value">Pick</span>
+        </div>
+        <div style="display: flex; align-items: center; gap: 4px;">
+          <button id="speedBtn" class="btn-hud-tool" title="Cycle Simulation Speed (0.5x, 1x, 1.5x, 2x)">
+            ⚡ 0.5x
+          </button>
+          <button id="muteBtn" class="btn-mute" aria-label="Toggle Audio Mute" title="Toggle Sound">
+            🔊
+          </button>
+        </div>
+      </div>
+
+      <!-- Arena Viewport & Canvas -->
+      <main class="arena-wrap" id="arenaWrap">
+        <canvas id="gameCanvas" width="480" height="600"></canvas>
+
+        <!-- Power-Up Visual Notification Banner -->
+        <div id="powerupToast" class="powerup-pill">
+          ⚡ Magic Shield activated!
+        </div>
+
+        <!-- Winner Celebration Banner -->
+        <div id="winnerBanner" class="winner-banner-wrap" aria-live="polite">
+          <div class="winner-trophy">🏆</div>
+          <div id="winnerTitle" class="winner-banner">
+            Japan Wins the Round!
+          </div>
+          <div id="nextRoundTimer" class="winner-countdown">
+            Next round starting in 2.5s...
+          </div>
+        </div>
+      </main>
+
+      <!-- Visual Elimination Alert Zone: Strictly between arena ring bottom and bottom dock -->
+      <div class="elimination-zone" id="eliminationZone" aria-live="polite">
+        <!-- Floating elimination pill toasts rendered dynamically -->
+      </div>
+
+      <!-- Bottom Dock: Eliminated Flags Graveyard -->
+      <footer class="dock-zone">
+        <div class="dock-header">
+          <span>Eliminated Flags</span>
+          <span class="dock-count" id="dockCountText">0 / 0</span>
+        </div>
+        <div class="dock-scroll" id="dockScroll">
+          <span class="dock-empty-hint" id="dockEmptyHint">No flags eliminated yet</span>
+        </div>
+      </footer>
+
+      <!-- Session Summary Modal (Triggered on Stop) -->
+      <div id="summaryModal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+        <div class="modal-card">
+          <div class="modal-header-block">
+            <h2 id="modalTitle" class="modal-title">Session Summary</h2>
+            <p class="modal-subtitle">Results from your Flag Fight session</p>
+          </div>
+
+          <div class="modal-stats-grid">
+            <div class="stat-tile">
+              <div class="stat-tile-label">Total Rounds</div>
+              <div id="modalRoundsVal" class="stat-tile-value">0</div>
+            </div>
+            <div class="stat-tile">
+              <div class="stat-tile-label">Duration</div>
+              <div id="modalDurationVal" class="stat-tile-value">00:00</div>
+            </div>
+          </div>
+
+          <div class="leaderboard-wrap">
+            <div class="leaderboard-title">
+              <span>Top 10 Winner Flags</span>
+              <span style="font-size: 11px; color: #64748b; font-weight: 600;">Wins (Tie-breaker: 1st Win)</span>
+            </div>
+            <div class="leaderboard-list" id="modalLeaderboardList">
+              <div class="leaderboard-empty">No winners recorded in this session.</div>
+            </div>
+          </div>
+
+          <div class="modal-buttons-row">
+            <button id="modalContinueBtn" class="btn-modal-continue" type="button" title="Resume active battle session">
+              ▶️ Continue
+            </button>
+            <button id="modalOkayBtn" class="btn-modal-okay" type="button" title="End session and reset results">
+              End & Reset
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Complete Vanilla JavaScript Game Engine -->
+    <script type="module">
+      import {
+        COUNTRIES,
+        ALL_CONTINENTS,
+        filterCountriesByContinents,
+        formatSessionTime,
+        computeLeaderboard,
+        isAngleInGap,
+        normalizeAngle,
+        resolveElasticCollision,
+        getNextSpeed,
+        checkExitGapCleared,
+        resolveShieldAbsorption,
+        computeTargetAngle,
+        findNearestOpponent,
+      } from '/src/game/battle-rules.ts';
+
+      // ==========================================
+      // ZERO-COPYRIGHT PROCEDURAL WEB AUDIO SYNTH
+      // ==========================================
+      let audioCtx = null;
+      let isMuted = false;
+
+      function getAudioContext() {
+        if (!audioCtx) {
+          const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+          if (AudioContextClass) {
+            audioCtx = new AudioContextClass();
+          }
+        }
+        if (audioCtx && audioCtx.state === 'suspended') {
+          audioCtx.resume();
+        }
+        return audioCtx;
+      }
+
+      // 1. Bounce Sound: Quick, gentle, high-pitched sine/triangle blip with rapid exponential decay
+      function playBounceSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = Math.random() > 0.5 ? 'sine' : 'triangle';
+          // Pitch varied slightly for organic feel
+          const baseFreq = 620 + Math.random() * 120;
+          osc.frequency.setValueAtTime(baseFreq, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(baseFreq * 1.3, ctx.currentTime + 0.05);
+
+          gain.gain.setValueAtTime(0.09, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.06);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + 0.065);
+        } catch (e) {
+          // Ignore audio node cleanup errors
+        }
+      }
+
+      // 2. Elimination Sound: Soft descending tone / subtle sweep (350Hz -> 120Hz)
+      function playEliminationSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(350, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(120, ctx.currentTime + 0.28);
+
+          gain.gain.setValueAtTime(0.12, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 3. Firecracker / Pop FX: Brief burst of bandpass-filtered noise with sharp attack/decay
+      function playFirecrackerPop() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const bufferSize = ctx.sampleRate * 0.06;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(1400 + Math.random() * 800, ctx.currentTime);
+          filter.Q.setValueAtTime(3.5, ctx.currentTime);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.18, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start();
+          noise.stop(ctx.currentTime + 0.065);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 4. Winner Low Applause / Cheer: Procedural crowd clap and applause effect
+      function playWinnerApplause() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const duration = 2.2;
+          const bufferSize = ctx.sampleRate * duration;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+
+          // Populate with pink-ish low-pass noise
+          let b0 = 0, b1 = 0, b2 = 0;
+          for (let i = 0; i < bufferSize; i++) {
+            const white = Math.random() * 2 - 1;
+            b0 = 0.99765 * b0 + white * 0.0990460;
+            b1 = 0.96300 * b1 + white * 0.2965164;
+            b2 = 0.57000 * b2 + white * 1.0526913;
+            // Simulated clapping density pulses
+            const pulse = 0.6 + 0.4 * Math.sin(i / 1800 + Math.random() * 0.2);
+            data[i] = (b0 + b1 + b2) * 0.12 * pulse;
+          }
+
+          const noiseSource = ctx.createBufferSource();
+          noiseSource.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(1200, ctx.currentTime);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.001, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.09, ctx.currentTime + 0.3);
+          gain.gain.setValueAtTime(0.09, ctx.currentTime + 1.6);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+          noiseSource.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noiseSource.start();
+          noiseSource.stop(ctx.currentTime + duration);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 5. Magic Shield Chime: 3-note ascending crystalline chime (C5, E5, G5)
+      function playShieldSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const notes = [523.25, 659.25, 783.99];
+          notes.forEach((freq, idx) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            const startTime = ctx.currentTime + idx * 0.06;
+            osc.frequency.setValueAtTime(freq, startTime);
+            gain.gain.setValueAtTime(0.08, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.0001, startTime + 0.35);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(startTime);
+            osc.stop(startTime + 0.36);
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 6. Speed Boost Whoosh: Procedural ascending bandpass noise sweep
+      function playSpeedBoostSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const bufferSize = ctx.sampleRate * 0.22;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'bandpass';
+          filter.frequency.setValueAtTime(450, ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(2600, ctx.currentTime + 0.2);
+          filter.Q.setValueAtTime(3.0, ctx.currentTime);
+
+          const gain = ctx.createGain();
+          gain.gain.setValueAtTime(0.001, ctx.currentTime);
+          gain.gain.linearRampToValueAtTime(0.12, ctx.currentTime + 0.04);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.22);
+
+          noise.connect(filter);
+          filter.connect(gain);
+          gain.connect(ctx.destination);
+
+          noise.start();
+          noise.stop(ctx.currentTime + 0.22);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 7. Shield Shatter / Break Sound: Crystalline glass dispersion & high harmonic pop
+      function playShieldBreakSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(1150, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(280, ctx.currentTime + 0.28);
+          gain.gain.setValueAtTime(0.14, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.3);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.3);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 8. Cannon Equip Sound: Dual mechanical latch / ratchet
+      function playCannonEquipSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          [0, 0.08].forEach((delay) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(320 + delay * 400, ctx.currentTime + delay);
+            osc.frequency.exponentialRampToValueAtTime(140, ctx.currentTime + delay + 0.05);
+            gain.gain.setValueAtTime(0.1, ctx.currentTime + delay);
+            gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + delay + 0.06);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ctx.currentTime + delay);
+            osc.stop(ctx.currentTime + delay + 0.065);
+          });
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 9. Cannon Fire Sound: Punchy percussive boom & air blast
+      function playCannonFireSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'sawtooth';
+          osc.frequency.setValueAtTime(260, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(45, ctx.currentTime + 0.16);
+          gain.gain.setValueAtTime(0.25, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.18);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 10. Cannon Hit / Explosion Pop Sound
+      function playCannonHitSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.type = 'triangle';
+          osc.frequency.setValueAtTime(480, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.22);
+          gain.gain.setValueAtTime(0.2, ctx.currentTime);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.24);
+          osc.connect(gain);
+          gain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.24);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // 11. Bomb Explosion Sound: Deep bass rumble & shockwave
+      function playExplosionSound() {
+        if (isMuted) return;
+        const ctx = getAudioContext();
+        if (!ctx) return;
+
+        try {
+          // Bass rumble oscillator
+          const osc = ctx.createOscillator();
+          const oscGain = ctx.createGain();
+          osc.type = 'sine';
+          osc.frequency.setValueAtTime(160, ctx.currentTime);
+          osc.frequency.exponentialRampToValueAtTime(30, ctx.currentTime + 0.45);
+          oscGain.gain.setValueAtTime(0.3, ctx.currentTime);
+          oscGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.48);
+          osc.connect(oscGain);
+          oscGain.connect(ctx.destination);
+          osc.start();
+          osc.stop(ctx.currentTime + 0.5);
+
+          // Filtered noise burst
+          const bufferSize = ctx.sampleRate * 0.35;
+          const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+          const data = buffer.getChannelData(0);
+          for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+          }
+          const noise = ctx.createBufferSource();
+          noise.buffer = buffer;
+          const filter = ctx.createBiquadFilter();
+          filter.type = 'lowpass';
+          filter.frequency.setValueAtTime(480, ctx.currentTime);
+          filter.frequency.exponentialRampToValueAtTime(90, ctx.currentTime + 0.35);
+          const noiseGain = ctx.createGain();
+          noiseGain.gain.setValueAtTime(0.22, ctx.currentTime);
+          noiseGain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+          noise.connect(filter);
+          filter.connect(noiseGain);
+          noiseGain.connect(ctx.destination);
+          noise.start();
+          noise.stop(ctx.currentTime + 0.36);
+        } catch (e) {
+          // Ignore
+        }
+      }
+
+      // ==========================================
+      // TEXT-TO-SPEECH (WEB SPEECH API)
+      // Sweet & natural English female voice
+      // (Google/Natural female prioritized, rate 0.98, pitch 1.18)
+      // ==========================================
+      let cachedVoices = [];
+      function loadSpeechVoices() {
+        if (!('speechSynthesis' in window)) return;
+        cachedVoices = window.speechSynthesis.getVoices();
+      }
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.onvoiceschanged = loadSpeechVoices;
+        loadSpeechVoices();
+      }
+
+      function getBestFemaleVoice() {
+        if (cachedVoices.length === 0 && 'speechSynthesis' in window) {
+          cachedVoices = window.speechSynthesis.getVoices();
+        }
+        if (!cachedVoices || cachedVoices.length === 0) return null;
+
+        const enVoices = cachedVoices.filter(v => v.lang && v.lang.toLowerCase().startsWith('en'));
+        if (enVoices.length === 0) return cachedVoices[0] || null;
+
+        // Tier 1: High quality Natural English female voices (Edge Natural / Google Cloud / Neural)
+        const tier1 = enVoices.find(v => {
+          const name = v.name.toLowerCase();
+          const isNatural = name.includes('natural') || name.includes('neural') || name.includes('online');
+          const isFemale = name.includes('female') || name.includes('jenny') || name.includes('aria') ||
+                           name.includes('sonia') || name.includes('ava') || name.includes('emma') || name.includes('zira');
+          return isNatural && isFemale;
+        });
+        if (tier1) return tier1;
+
+        // Tier 2: Google English Female voices (e.g. Google UK English Female, Google US English)
+        const tier2 = enVoices.find(v => {
+          const name = v.name.toLowerCase();
+          return (name.includes('google') || name.includes('chrome')) &&
+                 (name.includes('female') || name.includes('uk english female') || name.includes('us english female'));
+        });
+        if (tier2) return tier2;
+
+        // Tier 3: Apple & OS high quality female voices (Samantha Enhanced, Samantha, Victoria, Karen, Serena, Tessa)
+        const tier3 = enVoices.find(v => {
+          const name = v.name.toLowerCase();
+          return name.includes('samantha') || name.includes('victoria') || name.includes('karen') ||
+                 name.includes('serena') || name.includes('tessa') || name.includes('moira') || name.includes('fiona');
+        });
+        if (tier3) return tier3;
+
+        // Tier 4: Any English voice with "female" in name or voiceURI
+        const tier4 = enVoices.find(v => {
+          const combined = (v.name + ' ' + (v.voiceURI || '')).toLowerCase();
+          return combined.includes('female') || combined.includes('woman') || combined.includes('girl');
+        });
+        if (tier4) return tier4;
+
+        // Tier 5: Any Natural English voice
+        const tier5 = enVoices.find(v => v.name.toLowerCase().includes('natural'));
+        if (tier5) return tier5;
+
+        // Tier 6: Default English voice
+        const tier6 = enVoices.find(v => v.lang.toLowerCase().startsWith('en-us') || v.lang.toLowerCase().startsWith('en-gb')) || enVoices[0];
+        return tier6 || null;
+      }
+
+      function speakAnnouncement(text) {
+        if (!('speechSynthesis' in window) || isMuted) return;
+
+        try {
+          window.speechSynthesis.cancel();
+          const utterance = new SpeechSynthesisUtterance(text);
+          // Rate around 0.95–1.0 and pitch ~1.15–1.2 for sweet, warm, natural delivery
+          utterance.rate = 0.98;
+          utterance.pitch = 1.18;
+          utterance.volume = 1.0;
+
+          const voice = getBestFemaleVoice();
+          if (voice) {
+            utterance.voice = voice;
+          }
+
+          window.speechSynthesis.speak(utterance);
+        } catch (e) {
+          // Ignore TTS issues
+        }
+      }
+
+      // ==========================================
+      // STATE MANAGEMENT
+      // ==========================================
+      const selectedContinents = new Set(ALL_CONTINENTS);
+      let isSessionActive = false;
+      let sessionStartTime = 0;
+      let sessionElapsedSeconds = 0;
+      let sessionTimerInterval = null;
+      let currentRound = 1;
+      let totalCompletedRounds = 0;
+      let simSpeed = 0.5; // Lower default active gameplay speed to 0.5x
+      let userChampionId = null;
+
+      // Win Tracker Map: countryId -> { countryId, countryName, emoji, wins, firstWinRound }
+      const sessionWinsMap = new Map();
+
+      // Canvas & Sim Globals
+      const canvas = document.getElementById('gameCanvas');
+      const ctx = canvas.getContext('2d');
+      let animationFrameId = null;
+      let lastFrameTime = performance.now();
+
+      // Arena Geometry (Noticeably wider ring with single narrow revolving exit opening)
+      let arenaCenterX = 240;
+      let arenaCenterY = 280;
+      let arenaRadius = 205;
+      let ringRotation = 0;
+      const ringSpeed = 0.38; // Smoother, easier to track (~22 deg / sec)
+      const gapWidth = Math.PI / 8.4; // Reduced to half size (~21.4 deg) so flags escape much less frequently
+
+      // Spinning Obstacles (Two interior rotating 3-blade propellers, compact size)
+      const obstacle1 = {
+        x: arenaCenterX - 65,
+        y: arenaCenterY - 40,
+        angle: 0,
+        speed: 1.35, // Smoother rotation pace (rad / sec)
+        length: 38,  // Compact 3-blade fan
+        bladeWidth: 6
+      };
+      const obstacle2 = {
+        x: arenaCenterX + 65,
+        y: arenaCenterY + 40,
+        angle: Math.PI / 3,
+        speed: -1.25, // Counter-clockwise smooth pace
+        length: 38,   // Compact 3-blade fan
+        bladeWidth: 6
+      };
+
+      // Flag Simulation State
+      let activeFlags = [];
+      let eliminatedFlagsDock = [];
+      let winnerFlag = null;
+      let isRoundCelebrating = false;
+      let celebrationStartTime = 0;
+      const CELEBRATION_PAUSE_MS = 2500;
+
+      // 2D Confetti / Firecrackers Particle Pool
+      const MAX_PARTICLES = 160;
+      const particles = [];
+      for (let i = 0; i < MAX_PARTICLES; i++) {
+        particles.push({
+          active: false,
+          x: 0, y: 0,
+          vx: 0, vy: 0,
+          size: 4,
+          color: '#ffffff',
+          alpha: 1,
+          rotation: 0,
+          rotSpeed: 0,
+          shape: 'rect',
+          life: 0,
+          maxLife: 1
+        });
+      }
+
+      function spawnFirecrackerBurst(cx, cy, count = 70) {
+        const colors = ['#f43f5e', '#eab308', '#3b82f6', '#10b981', '#a855f7', '#fb923c', '#ffffff'];
+        let spawned = 0;
+        for (let i = 0; i < MAX_PARTICLES && spawned < count; i++) {
+          const p = particles[i];
+          if (!p.active) {
+            p.active = true;
+            p.x = cx + (Math.random() - 0.5) * 30;
+            p.y = cy + (Math.random() - 0.5) * 20;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 120 + Math.random() * 260;
+            p.vx = Math.cos(angle) * speed;
+            p.vy = Math.sin(angle) * speed - 60; // Upward bias
+            p.size = 3.5 + Math.random() * 4.5;
+            p.color = colors[Math.floor(Math.random() * colors.length)];
+            p.alpha = 1;
+            p.rotation = Math.random() * Math.PI * 2;
+            p.rotSpeed = (Math.random() - 0.5) * 10;
+            p.shape = Math.random() > 0.4 ? 'rect' : 'circle';
+            p.life = 0;
+            p.maxLife = 1.0 + Math.random() * 1.2;
+            spawned++;
+          }
+        }
+      }
+
+      // Next Power-up scheduler
+      let nextPowerupTimer = 10;
+
+      // ==========================================
+      // UI ELEMENTS & REFERENCES
+      // ==========================================
+      const continentBtn = document.getElementById('continentBtn');
+      const continentMenu = document.getElementById('continentMenu');
+      const continentChecklist = document.getElementById('continentChecklist');
+      const continentCountBadge = document.getElementById('continentCountBadge');
+      const toggleAllBtn = document.getElementById('toggleAllBtn');
+
+      const sessionBtn = document.getElementById('sessionBtn');
+      const sessionTimerText = document.getElementById('sessionTimerText');
+      const roundCounterText = document.getElementById('roundCounterText');
+      const aliveCounterText = document.getElementById('aliveCounterText');
+      const muteBtn = document.getElementById('muteBtn');
+
+      const winnerBanner = document.getElementById('winnerBanner');
+      const winnerTitle = document.getElementById('winnerTitle');
+      const nextRoundTimer = document.getElementById('nextRoundTimer');
+      const powerupToast = document.getElementById('powerupToast');
+
+      const eliminationZone = document.getElementById('eliminationZone');
+      const dockScroll = document.getElementById('dockScroll');
+      const dockCountText = document.getElementById('dockCountText');
+      const dockEmptyHint = document.getElementById('dockEmptyHint');
+
+      const summaryModal = document.getElementById('summaryModal');
+      const modalRoundsVal = document.getElementById('modalRoundsVal');
+      const modalDurationVal = document.getElementById('modalDurationVal');
+      const modalLeaderboardList = document.getElementById('modalLeaderboardList');
+      const modalContinueBtn = document.getElementById('modalContinueBtn');
+      const modalOkayBtn = document.getElementById('modalOkayBtn');
+
+      const appViewport = document.getElementById('appViewport');
+
+      // Populate Continent Checklist
+      function buildContinentChecklist() {
+        continentChecklist.innerHTML = '';
+        ALL_CONTINENTS.forEach((continent) => {
+          const count = COUNTRIES.filter(c => c.continent === continent).length;
+          const label = document.createElement('label');
+          label.className = 'continent-label';
+          label.innerHTML = `
+            <input type="checkbox" value="${continent}" ${selectedContinents.has(continent) ? 'checked' : ''} />
+            <span>${continent}</span>
+            <span class="continent-count-pill">${count}</span>
+          `;
+          const cb = label.querySelector('input');
+          cb.addEventListener('change', (e) => {
+            if (e.target.checked) {
+              selectedContinents.add(continent);
+            } else {
+              selectedContinents.delete(continent);
+            }
+            updateContinentState();
+          });
+          continentChecklist.appendChild(label);
+        });
+        updateContinentState();
+      }
+
+      function updateContinentState() {
+        continentCountBadge.textContent = selectedContinents.size;
+        toggleAllBtn.textContent = selectedContinents.size === ALL_CONTINENTS.length ? 'Deselect All' : 'Select All';
+        
+        // If session not active, refresh idle arena flags
+        if (!isSessionActive) {
+          setupNewRound(false);
+        }
+      }
+
+      // Dropdown toggle & outside-click close
+      continentBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isOpen = continentMenu.classList.toggle('open');
+        continentBtn.setAttribute('aria-expanded', isOpen);
+      });
+
+      document.addEventListener('click', (e) => {
+        if (!continentMenu.contains(e.target) && e.target !== continentBtn) {
+          continentMenu.classList.remove('open');
+          continentBtn.setAttribute('aria-expanded', 'false');
+        }
+      });
+
+      toggleAllBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (selectedContinents.size === ALL_CONTINENTS.length) {
+          selectedContinents.clear();
+        } else {
+          ALL_CONTINENTS.forEach(c => selectedContinents.add(c));
+        }
+        const checkboxes = continentChecklist.querySelectorAll('input[type="checkbox"]');
+        checkboxes.forEach(cb => {
+          cb.checked = selectedContinents.has(cb.value);
+        });
+        updateContinentState();
+      });
+
+      // Mute Toggle
+      muteBtn.addEventListener('click', () => {
+        isMuted = !isMuted;
+        muteBtn.textContent = isMuted ? '🔇' : '🔊';
+        muteBtn.title = isMuted ? 'Unmute Sound' : 'Mute Sound';
+      });
+
+      // Simulation Speed Toggle (1x, 1.5x, 2x)
+      const speedBtn = document.getElementById('speedBtn');
+      if (speedBtn) {
+        speedBtn.addEventListener('click', () => {
+          getAudioContext();
+          simSpeed = getNextSpeed(simSpeed);
+          speedBtn.textContent = `⚡ ${simSpeed}x`;
+        });
+      }
+
+      // Favorite Champion Selector
+      function selectChampion(country) {
+        userChampionId = country.id;
+        const favPill = document.getElementById('favPill');
+        const favFlagText = document.getElementById('favFlagText');
+        if (favPill && favFlagText) {
+          favPill.style.display = 'inline-flex';
+          favFlagText.textContent = country.code;
+        }
+        powerupToast.textContent = `⭐ Backing ${country.name} to win!`;
+        powerupToast.classList.add('show');
+        setTimeout(() => {
+          powerupToast.classList.remove('show');
+        }, 1800);
+      }
+
+      // Tap on canvas to back a country
+      canvas.addEventListener('pointerdown', (e) => {
+        getAudioContext();
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = (canvas.width / (window.devicePixelRatio || 1)) / rect.width;
+        const scaleY = (canvas.height / (window.devicePixelRatio || 1)) / rect.height;
+        const clickX = (e.clientX - rect.left) * scaleX;
+        const clickY = (e.clientY - rect.top) * scaleY;
+
+        let bestFlag = null;
+        let bestDist = 38;
+        for (const f of activeFlags) {
+          if (f.isEliminated) continue;
+          const d = Math.hypot(f.x - clickX, f.y - clickY);
+          if (d < bestDist) {
+            bestDist = d;
+            bestFlag = f;
+          }
+        }
+        if (bestFlag) {
+          selectChampion(bestFlag.country);
+        }
+      });
+
+      // Session Start / Stop Button Handlers
+      sessionBtn.addEventListener('click', () => {
+        getAudioContext(); // Initialize audio context on user gesture
+        if (!isSessionActive) {
+          startSession();
+        } else {
+          stopSession();
+        }
+      });
+
+      // Continue Button in Summary Modal (resumes active session without resetting)
+      function continueSession() {
+        summaryModal.classList.remove('open');
+        isSessionActive = true;
+        document.body.dataset.state = 'playing';
+
+        sessionBtn.textContent = 'Stop';
+        sessionBtn.className = 'btn-session stop';
+        sessionBtn.removeAttribute('data-start');
+
+        // Resume active session timer seamlessly from current duration
+        sessionStartTime = Date.now() - (sessionElapsedSeconds * 1000);
+        if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+        sessionTimerInterval = setInterval(() => {
+          sessionElapsedSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+          sessionTimerText.textContent = formatSessionTime(sessionElapsedSeconds);
+        }, 1000);
+      }
+
+      if (modalContinueBtn) {
+        modalContinueBtn.addEventListener('click', () => {
+          getAudioContext();
+          continueSession();
+        });
+      }
+
+      // Okay Button in Modal (Ends session & resets)
+      modalOkayBtn.addEventListener('click', () => {
+        closeSummaryModal();
+      });
+
+      // Real Country Flag Image Cache via standard FlagCDN (https://flagcdn.com/w80/[code].png)
+      const flagImgCache = new Map();
+      function getCountryFlagImg(country) {
+        if (!country || country.continent === 'Antarctica') return null;
+        const iso = country.id.toLowerCase();
+        if (flagImgCache.has(iso)) return flagImgCache.get(iso);
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = `https://flagcdn.com/w80/${iso}.png`;
+        flagImgCache.set(iso, img);
+        return img;
+      }
+
+      // Floating Power-Up & Alert Announcement Helper
+      function triggerPowerupAlert(text, speechText) {
+        powerupToast.textContent = text;
+        powerupToast.classList.add('show');
+        speakAnnouncement(speechText || text);
+        setTimeout(() => {
+          powerupToast.classList.remove('show');
+        }, 2600);
+      }
+
+      // ==========================================
+      // FALLING POWER-UP ORBS & PROJECTILES
+      // Clusters of 2 to 3 orbs dropped downward into ring
+      // ==========================================
+      let activePowerups = [];
+      let cannonProjectiles = [];
+      let shockwaves = [];
+      const POWERUP_TYPES = ['shield', 'speed', 'bomb', 'cannon'];
+
+      class PowerupOrb {
+        constructor(type, x, y) {
+          this.type = type; // 'shield' | 'speed' | 'bomb' | 'cannon'
+          this.x = x;
+          this.y = y;
+          this.radius = 12.5;
+          this.vy = 90 + Math.random() * 35; // Drops downward into the ring
+          this.vx = (Math.random() - 0.5) * 25;
+          this.active = true;
+          this.isInside = false;
+          this.age = 0;
+          // Bomb: detonates at a random moment after falling inside (3.2s - 5.0s)
+          this.fuseTime = type === 'bomb' ? (3.2 + Math.random() * 1.8) : 0;
+          this.pulseAngle = Math.random() * Math.PI * 2;
+        }
+
+        update(dt) {
+          if (!this.active) return;
+          this.age += dt;
+          this.pulseAngle += dt * 4.5;
+
+          const dx = this.x - arenaCenterX;
+          const dy = this.y - arenaCenterY;
+          const dist = Math.hypot(dx, dy);
+
+          if (!this.isInside) {
+            // Accelerate downwards into the ring
+            this.vy += 140 * dt;
+            this.y += this.vy * dt;
+            this.x += this.vx * dt;
+            if (dist < arenaRadius * 0.75) {
+              this.isInside = true;
+              this.vy *= 0.35; // Soft landing deceleration to drift inside
+            }
+          } else {
+            // Gentle drifting inside the ring
+            this.x += this.vx * dt;
+            this.y += this.vy * dt;
+            // Wall bounce inside ring
+            const innerBoundary = arenaRadius - this.radius - 6;
+            if (dist > innerBoundary && dist > 0) {
+              const nx = dx / dist;
+              const ny = dy / dist;
+              this.x = arenaCenterX + nx * innerBoundary;
+              this.y = arenaCenterY + ny * innerBoundary;
+              const dot = this.vx * nx + this.vy * ny;
+              this.vx = (this.vx - 2 * dot * nx) * 0.85;
+              this.vy = (this.vy - 2 * dot * ny) * 0.85;
+            }
+          }
+
+          // Bomb specific detonation timer
+          if (this.type === 'bomb') {
+            this.fuseTime -= dt;
+            if (this.fuseTime <= 0) {
+              this.detonate();
+            }
+          }
+        }
+
+        detonate() {
+          if (!this.active) return;
+          this.active = false;
+          spawnExplosionShockwave(this.x, this.y);
+        }
+
+        draw(ctx) {
+          if (!this.active) return;
+          ctx.save();
+          ctx.translate(this.x, this.y);
+
+          const pulse = 1 + Math.sin(this.pulseAngle) * 0.12;
+          const r = this.radius * pulse;
+
+          if (this.type === 'shield') {
+            // Glowing Shiny Shield Orb
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 14;
+            const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.5, '#38bdf8');
+            grad.addColorStop(1, '#0284c7');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🛡️', 0, 0.5);
+          } else if (this.type === 'speed') {
+            // Electric Speed Boost Orb
+            ctx.shadowColor = '#f59e0b';
+            ctx.shadowBlur = 14;
+            const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.5, '#facc15');
+            grad.addColorStop(1, '#ea580c');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⚡', 0, 0.5);
+          } else if (this.type === 'bomb') {
+            // Red-Orange Bomb Orb
+            const isUrgent = this.fuseTime < 1.4;
+            ctx.shadowColor = isUrgent ? '#ef4444' : '#f97316';
+            ctx.shadowBlur = isUrgent ? 20 : 12;
+            const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+            grad.addColorStop(0, isUrgent ? '#fee2e2' : '#ffffff');
+            grad.addColorStop(0.5, '#ef4444');
+            grad.addColorStop(1, '#991b1b');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 1.8;
+            ctx.stroke();
+
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💣', 0, 0.5);
+          } else if (this.type === 'cannon') {
+            // Metallic Cannon Orb
+            ctx.shadowColor = '#38bdf8';
+            ctx.shadowBlur = 14;
+            const grad = ctx.createRadialGradient(0, 0, 2, 0, 0, r);
+            grad.addColorStop(0, '#ffffff');
+            grad.addColorStop(0.4, '#475569');
+            grad.addColorStop(1, '#0f172a');
+            ctx.fillStyle = grad;
+            ctx.beginPath();
+            ctx.arc(0, 0, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2.0;
+            ctx.stroke();
+
+            ctx.font = '12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('🎯', 0, 0.5);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      class CannonProjectile {
+        constructor(x, y, target, shooter) {
+          this.x = x;
+          this.y = y;
+          this.target = target;
+          this.shooter = shooter;
+          this.radius = 5.5;
+          this.speed = 520;
+          this.active = true;
+          this.life = 0;
+          this.maxLife = 2.2;
+
+          const angle = computeTargetAngle(x, y, target.x, target.y);
+          this.vx = Math.cos(angle) * this.speed;
+          this.vy = Math.sin(angle) * this.speed;
+        }
+
+        update(dt) {
+          if (!this.active) return;
+          this.life += dt;
+          if (this.life >= this.maxLife) {
+            this.active = false;
+            return;
+          }
+
+          // Gentle homing tracking toward opponent
+          if (this.target && !this.target.isEliminated) {
+            const angle = computeTargetAngle(this.x, this.y, this.target.x, this.target.y);
+            const targetVx = Math.cos(angle) * this.speed;
+            const targetVy = Math.sin(angle) * this.speed;
+            this.vx += (targetVx - this.vx) * 0.16;
+            this.vy += (targetVy - this.vy) * 0.16;
+          }
+
+          this.x += this.vx * dt;
+          this.y += this.vy * dt;
+
+          // Check hit against living flags (1-hit elimination or absorbed by shield)
+          for (const flag of activeFlags) {
+            if (flag === this.shooter || flag.isEliminated) continue;
+            const dist = Math.hypot(flag.x - this.x, flag.y - this.y);
+            if (dist < flag.radius + this.radius) {
+              this.active = false;
+              if (flag.hasShield) {
+                // Magic Shield absorbs projectile!
+                flag.hasShield = false;
+                playShieldBreakSound();
+                spawnShieldBreakParticles(flag.x, flag.y);
+                triggerPowerupAlert(`🛡️ Magic Shield protected ${flag.country.name} from cannon fire!`, `Magic Shield protected ${flag.country.name}!`);
+              } else {
+                // Instant 1-hit elimination!
+                playCannonHitSound();
+                spawnFirecrackerBurst(flag.x, flag.y, 35);
+                triggerPowerupAlert(`🎯 Cannon shot eliminated ${flag.country.name}!`, `Cannon eliminated ${flag.country.name}!`);
+                flag.eliminate();
+              }
+              break;
+            }
+          }
+        }
+
+        draw(ctx) {
+          if (!this.active) return;
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 10;
+          ctx.fillStyle = '#f97316';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.fillStyle = '#ffffff';
+          ctx.beginPath();
+          ctx.arc(0, 0, this.radius * 0.5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.restore();
+        }
+      }
+
+      function spawnExplosionShockwave(bx, by) {
+        playExplosionSound();
+        shockwaves.push({
+          x: bx,
+          y: by,
+          radius: 12,
+          maxRadius: arenaRadius * 0.72,
+          speed: 360,
+          alpha: 1.0,
+        });
+        spawnFirecrackerBurst(bx, by, 70);
+
+        // "The first flag hit by the explosive shockwave is eliminated immediately"
+        let nearestFlag = null;
+        let minDist = Infinity;
+        for (const flag of activeFlags) {
+          if (flag.isEliminated) continue;
+          const d = Math.hypot(flag.x - bx, flag.y - by);
+          if (d < arenaRadius * 0.72 && d < minDist) {
+            minDist = d;
+            nearestFlag = flag;
+          }
+        }
+
+        if (nearestFlag) {
+          if (nearestFlag.hasShield) {
+            nearestFlag.hasShield = false;
+            playShieldBreakSound();
+            spawnShieldBreakParticles(nearestFlag.x, nearestFlag.y);
+            triggerPowerupAlert(`🛡️ Magic Shield protected ${nearestFlag.country.name} from the bomb!`, `Magic Shield protected ${nearestFlag.country.name}!`);
+            const angle = Math.atan2(nearestFlag.y - by, nearestFlag.x - bx);
+            nearestFlag.vx += Math.cos(angle) * 160;
+            nearestFlag.vy += Math.sin(angle) * 160;
+          } else {
+            spawnFirecrackerBurst(nearestFlag.x, nearestFlag.y, 45);
+            triggerPowerupAlert(`💥 Bomb eliminated ${nearestFlag.country.name}!`, `Bomb eliminated ${nearestFlag.country.name}!`);
+            nearestFlag.eliminate();
+          }
+        } else {
+          triggerPowerupAlert(`💥 Bomb detonated!`, `Bomb detonated!`);
+        }
+      }
+
+      function spawnShieldBreakParticles(cx, cy) {
+        const colors = ['#38bdf8', '#00f0ff', '#fef08a', '#ffffff'];
+        let spawned = 0;
+        for (let i = 0; i < MAX_PARTICLES && spawned < 35; i++) {
+          const p = particles[i];
+          if (!p.active) {
+            p.active = true;
+            p.x = cx;
+            p.y = cy;
+            const angle = Math.random() * Math.PI * 2;
+            const speed = 80 + Math.random() * 180;
+            p.vx = Math.cos(angle) * speed;
+            p.vy = Math.sin(angle) * speed;
+            p.size = 3.5 + Math.random() * 3.5;
+            p.color = colors[Math.floor(Math.random() * colors.length)];
+            p.alpha = 1;
+            p.rotation = Math.random() * Math.PI * 2;
+            p.rotSpeed = (Math.random() - 0.5) * 12;
+            p.shape = 'circle';
+            p.life = 0;
+            p.maxLife = 0.8 + Math.random() * 0.6;
+            spawned++;
+          }
+        }
+      }
+
+      // Drop one power-up type at a time, releasing a cluster of 2 to 3 power-up orbs
+      function triggerPowerupDrop() {
+        if (!isSessionActive || activeFlags.filter(f => !f.isEliminated).length <= 1) return;
+
+        const chosenType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
+        const clusterCount = Math.floor(Math.random() * 2) + 2; // 2 or 3 orbs
+
+        const startY = arenaCenterY - arenaRadius - 38;
+        for (let i = 0; i < clusterCount; i++) {
+          const startX = arenaCenterX + (Math.random() - 0.5) * (arenaRadius * 0.88);
+          const orb = new PowerupOrb(chosenType, startX, startY - i * 22);
+          activePowerups.push(orb);
+        }
+      }
+
+      // ==========================================
+      // FLAG BATCH SPAWN & PHYSICS
+      // Authentic flag cards with real images & clear labels
+      // ==========================================
+      class FlagEntity {
+        constructor(country, index, total) {
+          this.country = country;
+          this.width = 30;  // High quality authentic flag card
+          this.height = 19;
+          this.radius = 11.5;
+          this.mass = 1.0;
+
+          // Spawn in inner circular cloud
+          const spawnRadius = (Math.random() * 0.65) * (arenaRadius - 35);
+          const spawnAngle = (index / total) * Math.PI * 2 + Math.random() * 0.2;
+          this.x = arenaCenterX + Math.cos(spawnAngle) * spawnRadius;
+          this.y = arenaCenterY + Math.sin(spawnAngle) * spawnRadius;
+
+          // Smoother, slightly slower default 1x simulation pace (60-90 px/s)
+          const speed = 60 + Math.random() * 30;
+          const moveAngle = Math.random() * Math.PI * 2;
+          this.vx = Math.cos(moveAngle) * speed;
+          this.vy = Math.sin(moveAngle) * speed;
+
+          this.angle = 0;
+          this.angularVelocity = (Math.random() - 0.5) * 1.5;
+
+          // Elimination state
+          this.isEliminated = false;
+          this.eliminationYVel = 0;
+          this.eliminationAlpha = 1.0;
+
+          // Power-up states
+          this.hasShield = false;
+          this.hasSpeedBoost = false;
+          this.speedBoostTimer = 0;
+          this.hasCannon = false;
+          this.cannonShotsLeft = 0;
+          this.cannonShotCooldown = 0;
+        }
+
+        update(dt) {
+          if (this.isEliminated) {
+            // Falls downward toward bottom dock
+            this.eliminationYVel += 800 * dt;
+            this.y += this.eliminationYVel * dt;
+            this.x += this.vx * 0.3 * dt;
+            this.angle += this.angularVelocity * 2.5 * dt;
+            this.eliminationAlpha = Math.max(0, this.eliminationAlpha - dt * 0.8);
+            return;
+          }
+
+          // Handle Power-up timers
+          if (this.hasSpeedBoost) {
+            this.speedBoostTimer -= dt;
+            if (this.speedBoostTimer <= 0) this.hasSpeedBoost = false;
+          }
+
+          // Cannon sequential firing loop (fires 5 shots at nearest opponent with 0.5s intervals)
+          if (this.hasCannon && this.cannonShotsLeft > 0) {
+            this.cannonShotCooldown -= dt;
+            if (this.cannonShotCooldown <= 0) {
+              const nearest = findNearestOpponent(this, activeFlags);
+              if (nearest) {
+                cannonProjectiles.push(new CannonProjectile(this.x, this.y, nearest, this));
+                this.cannonShotsLeft--;
+                this.cannonShotCooldown = 0.5; // Strictly 0.5-second interval
+                playCannonFireSound();
+              }
+              if (this.cannonShotsLeft <= 0) {
+                this.hasCannon = false;
+              }
+            }
+          }
+
+          // Movement speed pace: 5x pace when speed boost active
+          const speedMult = this.hasSpeedBoost ? 5.0 : 1.0;
+          this.x += this.vx * speedMult * dt;
+          this.y += this.vy * speedMult * dt;
+          this.angle += this.angularVelocity * dt;
+
+          // Smooth velocity clamp to prevent frantic pinball behavior
+          const curSpeed = Math.hypot(this.vx, this.vy);
+          if (curSpeed < 45) {
+            const boost = 55 / (curSpeed || 1);
+            this.vx *= boost;
+            this.vy *= boost;
+          } else if (curSpeed > 170 && !this.hasSpeedBoost) {
+            this.vx *= 0.97;
+            this.vy *= 0.97;
+          }
+
+          // Collision with Rotating Outer Ring & Exit Gap Clearance Physics
+          const dx = this.x - arenaCenterX;
+          const dy = this.y - arenaCenterY;
+          const dist = Math.hypot(dx, dy);
+          const maxDist = arenaRadius - this.radius;
+
+          if (dist > maxDist) {
+            const entityAngle = Math.atan2(dy, dx);
+            const inGap = isAngleInGap(entityAngle, ringRotation, 0, gapWidth);
+
+            if (inGap) {
+              // In the opening: DO NOT eliminate prematurely while touching or sliding near the opening!
+              // Wait until the flag's body has fully passed through the exit gap and cleared the outer perimeter ring:
+              if (checkExitGapCleared(dist, this.radius, arenaRadius, 7)) {
+                if (this.hasShield) {
+                  // Magic Shield absorbs exit gap and breaks
+                  this.hasShield = false;
+                  playShieldBreakSound();
+                  spawnShieldBreakParticles(this.x, this.y);
+                  triggerPowerupAlert(`🛡️ Magic Shield saved ${this.country.name} from the exit!`, `Magic Shield saved ${this.country.name}!`);
+                  // Bounce back inward
+                  this.vx = -Math.cos(entityAngle) * 95;
+                  this.vy = -Math.sin(entityAngle) * 95;
+                } else if (isSessionActive) {
+                  // Fully cleared outer ring -> eliminate!
+                  this.eliminate();
+                } else {
+                  // Idle state: bounce back inside gently, all eliminations disabled
+                  this.vx = -Math.cos(entityAngle) * 60;
+                  this.vy = -Math.sin(entityAngle) * 60;
+                }
+              }
+            } else {
+              // Not in gap: bounce off solid inner ring wall
+              const normalX = dx / dist;
+              const normalY = dy / dist;
+              this.x = arenaCenterX + normalX * maxDist;
+              this.y = arenaCenterY + normalY * maxDist;
+
+              // Reflect velocity along normal
+              const dot = this.vx * normalX + this.vy * normalY;
+              this.vx = (this.vx - 2 * dot * normalX) * 0.94;
+              this.vy = (this.vy - 2 * dot * normalY) * 0.94;
+
+              // Gentle angular spin kick
+              this.angularVelocity = (Math.random() - 0.5) * 2.0;
+              if (isSessionActive) playBounceSound();
+            }
+          }
+
+          // Collision with Rotating 3-Blade Propeller Obstacles
+          this.checkPropellerCollision(obstacle1, dt);
+          this.checkPropellerCollision(obstacle2, dt);
+        }
+
+        checkPropellerCollision(prop, dt) {
+          const dx = this.x - prop.x;
+          const dy = this.y - prop.y;
+          const distToHub = Math.hypot(dx, dy);
+
+          if (distToHub < prop.length + this.radius) {
+            // Strictly 3 blades separated by 120 deg (2 * PI / 3)
+            for (let b = 0; b < 3; b++) {
+              const bladeAngle = prop.angle + b * (Math.PI * 2 / 3);
+              const bladeTipX = prop.x + Math.cos(bladeAngle) * prop.length;
+              const bladeTipY = prop.y + Math.sin(bladeAngle) * prop.length;
+
+              const lineDist = distToSegment(this.x, this.y, prop.x, prop.y, bladeTipX, bladeTipY);
+              if (lineDist < this.radius + prop.bladeWidth / 2) {
+                const pushAngle = bladeAngle + (Math.PI / 2) * Math.sign(prop.speed);
+                const bladeSpeed = Math.abs(prop.speed) * 65;
+                this.vx += Math.cos(pushAngle) * bladeSpeed;
+                this.vy += Math.sin(pushAngle) * bladeSpeed;
+                this.angularVelocity += prop.speed * 1.2;
+                if (isSessionActive) playBounceSound();
+              }
+            }
+          }
+        }
+
+        eliminate() {
+          if (this.isEliminated) return;
+          this.isEliminated = true;
+          this.eliminationYVel = 120;
+          playEliminationSound();
+
+          // User favorite notification & haptics
+          if (this.country.id === userChampionId) {
+            if ('vibrate' in navigator) {
+              try { navigator.vibrate([30, 40, 30]); } catch (e) {}
+            }
+            powerupToast.textContent = `💔 Your pick ${this.country.name} was eliminated (#${eliminatedFlagsDock.length + 1})!`;
+            powerupToast.classList.add('show');
+            setTimeout(() => {
+              powerupToast.classList.remove('show');
+            }, 2400);
+          }
+
+          // Trigger Visual Alert (No Voice)
+          showEliminationToast(this.country);
+
+          // Add to dock
+          addFlagToDock(this.country);
+
+          // Check if only 1 flag remaining
+          checkRoundVictory();
+        }
+
+        draw(ctx) {
+          if (this.eliminationAlpha <= 0) return;
+
+          ctx.save();
+          ctx.translate(this.x, this.y);
+          ctx.rotate(this.angle);
+          ctx.globalAlpha = this.eliminationAlpha;
+
+          const w = this.width;
+          const h = this.height;
+
+          // Drop Shadow
+          ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+          ctx.shadowBlur = 6;
+          ctx.shadowOffsetY = 2.5;
+
+          // Card Background & Clipping
+          ctx.beginPath();
+          ctx.roundRect(-w / 2, -h / 2, w, h, 4);
+          ctx.fillStyle = '#ffffff';
+          ctx.fill();
+          ctx.clip();
+          ctx.shadowColor = 'transparent';
+
+          // Render Real Country Flag Images or Antarctica Solid White Flag
+          if (this.country.continent === 'Antarctica') {
+            // Antarctica (1 flag): Render a solid, full-white flag with the name "Antarctica" displayed clearly on top of it
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(-w / 2, -h / 2, w, h);
+          } else {
+            const flagImg = getCountryFlagImg(this.country);
+            if (flagImg && flagImg.complete && flagImg.naturalWidth > 0) {
+              ctx.drawImage(flagImg, -w / 2, -h / 2, w, h);
+            } else {
+              drawCountryFlagGraphic(ctx, this.country, -w / 2, -h / 2, w, h);
+            }
+          }
+
+          // Glossy Bevel Highlight (diagonal glass sheen)
+          const grad = ctx.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+          grad.addColorStop(0, 'rgba(255, 255, 255, 0.40)');
+          grad.addColorStop(0.4, 'rgba(255, 255, 255, 0.12)');
+          grad.addColorStop(0.6, 'rgba(255, 255, 255, 0)');
+          grad.addColorStop(1, 'rgba(0, 0, 0, 0.18)');
+          ctx.fillStyle = grad;
+          ctx.fillRect(-w / 2, -h / 2, w, h);
+
+          // Card Border
+          ctx.strokeStyle = 'rgba(255, 255, 255, 0.92)';
+          ctx.lineWidth = 1.2;
+          ctx.stroke();
+
+          // Display each country's name clearly on top of its flag
+          if (this.country.continent === 'Antarctica') {
+            ctx.fillStyle = '#0f172a';
+            ctx.font = '900 5.8px var(--font-sans)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('Antarctica', 0, 0);
+          } else {
+            const countryName = this.country.name;
+            ctx.font = 'bold 5.2px var(--font-sans)';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const measuredW = ctx.measureText(countryName).width;
+            const labelW = Math.min(w - 2, measuredW + 4);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            ctx.beginPath();
+            ctx.roundRect(-labelW / 2, h / 2 - 6.2, labelW, 5.4, 2.2);
+            ctx.fill();
+
+            ctx.fillStyle = '#ffffff';
+            const displayStr = measuredW > w - 4 ? this.country.code : countryName;
+            ctx.fillText(displayStr, 0, h / 2 - 3.5);
+          }
+
+          // Power-up Visual Overlays
+          // 1. Magic Shield: glowing shiny shield ring
+          if (this.hasShield) {
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3.0;
+            ctx.shadowColor = '#00f0ff';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 5.5, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.strokeStyle = '#fef08a';
+            ctx.lineWidth = 1.0;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 7.5, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // 2. Speed Boost Aura
+          if (this.hasSpeedBoost) {
+            ctx.strokeStyle = '#f59e0b';
+            ctx.lineWidth = 2.5;
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 10;
+            ctx.beginPath();
+            ctx.arc(0, 0, this.radius + 4, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+
+          // 3. Cannon equipment indicator
+          if (this.hasCannon) {
+            ctx.fillStyle = '#1e293b';
+            ctx.fillRect(-2.5, -h / 2 - 7, 5, 7);
+            ctx.fillStyle = '#ef4444';
+            ctx.beginPath();
+            ctx.arc(0, -h / 2 - 8, 2.5, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          // User Chosen Champion Indicator (Gold border + Star)
+          if (this.country.id === userChampionId) {
+            ctx.shadowColor = '#eab308';
+            ctx.shadowBlur = 10;
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-w / 2 - 2, -h / 2 - 2, w + 4, h + 4, 5);
+            ctx.stroke();
+
+            ctx.font = '10px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('⭐', 0, -h / 2 - 7);
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // Distance from point to line segment helper
+      function distToSegment(px, py, x1, y1, x2, y2) {
+        const l2 = (x2 - x1) ** 2 + (y2 - y1) ** 2;
+        if (l2 === 0) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * (x2 - x1) + (py - y1) * (y2 - y1)) / l2;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * (x2 - x1)), py - (y1 + t * (y2 - y1)));
+      }
+
+      // Procedural Vector Flag Graphic renderer on canvas
+      function drawCountryFlagGraphic(ctx, country, x, y, w, h) {
+        const colors = country.colors;
+        if (!colors || colors.length === 0) {
+          ctx.fillStyle = '#cbd5e1';
+          ctx.fillRect(x, y, w, h);
+          return;
+        }
+
+        if (country.flagType === 'horizontal') {
+          const stripeH = h / colors.length;
+          colors.forEach((c, i) => {
+            ctx.fillStyle = c;
+            ctx.fillRect(x, y + i * stripeH, w, stripeH);
+          });
+        } else if (country.flagType === 'vertical') {
+          const stripeW = w / colors.length;
+          colors.forEach((c, i) => {
+            ctx.fillStyle = c;
+            ctx.fillRect(x + i * stripeW, y, stripeW, h);
+          });
+        } else if (country.flagType === 'cross') {
+          // Base color
+          ctx.fillStyle = colors[0];
+          ctx.fillRect(x, y, w, h);
+          // Cross
+          ctx.fillStyle = colors[1] || '#ffffff';
+          const crossW = 6;
+          ctx.fillRect(x + w * 0.38 - crossW / 2, y, crossW, h);
+          ctx.fillRect(x, y + h / 2 - crossW / 2, w, crossW);
+        } else if (country.flagType === 'circle') {
+          ctx.fillStyle = colors[0];
+          ctx.fillRect(x, y, w, h);
+          ctx.fillStyle = colors[1] || '#dc2626';
+          ctx.beginPath();
+          ctx.arc(x + w / 2, y + h / 2, Math.min(w, h) * 0.28, 0, Math.PI * 2);
+          ctx.fill();
+        } else {
+          // Custom / Default clean fill
+          ctx.fillStyle = colors[0];
+          ctx.fillRect(x, y, w, h);
+          if (colors[1]) {
+            ctx.fillStyle = colors[1];
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + w * 0.5, y);
+            ctx.lineTo(x, y + h);
+            ctx.fill();
+          }
+        }
+      }
+
+      // ==========================================
+      // ROUND & SESSION LIFECYCLE
+      // ==========================================
+      function setupNewRound(autoStartSim = true) {
+        isRoundCelebrating = false;
+        winnerFlag = null;
+        winnerBanner.classList.remove('visible');
+
+        // Filter eligible countries based on active continent checklist
+        const eligibleCountries = filterCountriesByContinents(selectedContinents);
+
+        // Instantiate flags
+        activeFlags = eligibleCountries.map((c, idx) => new FlagEntity(c, idx, eligibleCountries.length));
+        eliminatedFlagsDock = [];
+
+        // Clear and reset dock display
+        dockScroll.innerHTML = '';
+        dockEmptyHint.style.display = 'block';
+        dockScroll.appendChild(dockEmptyHint);
+        dockCountText.textContent = `0 / ${activeFlags.length}`;
+
+        aliveCounterText.textContent = `${activeFlags.length} alive`;
+        roundCounterText.textContent = `Round ${currentRound}`;
+
+        nextPowerupTimer = 8 + Math.random() * 8;
+      }
+
+      function startSession() {
+        isSessionActive = true;
+        document.body.dataset.state = 'playing';
+        sessionBtn.textContent = 'Stop';
+        sessionBtn.className = 'btn-session stop';
+        sessionBtn.removeAttribute('data-start');
+
+        sessionStartTime = Date.now() - (sessionElapsedSeconds * 1000);
+        if (sessionTimerInterval) clearInterval(sessionTimerInterval);
+        sessionTimerInterval = setInterval(() => {
+          sessionElapsedSeconds = Math.floor((Date.now() - sessionStartTime) / 1000);
+          sessionTimerText.textContent = formatSessionTime(sessionElapsedSeconds);
+        }, 1000);
+
+        setupNewRound(true);
+      }
+
+      function stopSession() {
+        isSessionActive = false;
+        document.body.dataset.state = 'idle';
+        if (sessionTimerInterval) {
+          clearInterval(sessionTimerInterval);
+          sessionTimerInterval = null;
+        }
+
+        // Open Session Summary Modal
+        openSummaryModal();
+      }
+
+      function checkRoundVictory() {
+        const remaining = activeFlags.filter(f => !f.isEliminated);
+        aliveCounterText.textContent = `${remaining.length} alive`;
+
+        if (remaining.length === 1 && !isRoundCelebrating && isSessionActive) {
+          triggerRoundVictory(remaining[0]);
+        }
+      }
+
+      // Helper: Generate crisp mini vector flag SVG
+      function getMiniFlagSvg(country, w = 18, h = 12) {
+        if (!country) return '';
+        const colors = country.colors || ['#ffffff'];
+        if (country.flagType === 'horizontal') {
+          const sh = h / colors.length;
+          const rects = colors.map((c, i) => `<rect x="0" y="${(i * sh).toFixed(1)}" width="${w}" height="${sh.toFixed(1)}" fill="${c}" />`).join('');
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;">${rects}</svg>`;
+        } else if (country.flagType === 'vertical') {
+          const sw = w / colors.length;
+          const rects = colors.map((c, i) => `<rect x="${(i * sw).toFixed(1)}" y="0" width="${sw.toFixed(1)}" height="${h}" fill="${c}" />`).join('');
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;">${rects}</svg>`;
+        } else if (country.flagType === 'circle') {
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><circle cx="${w/2}" cy="${h/2}" r="${(h*0.28).toFixed(1)}" fill="${colors[1] || '#dc2626'}" /></svg>`;
+        } else if (country.flagType === 'cross') {
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><rect x="${(w*0.38 - 1.5).toFixed(1)}" y="0" width="3" height="${h}" fill="${colors[1] || '#ffffff'}" /><rect x="0" y="${(h/2 - 1.5).toFixed(1)}" width="${w}" height="3" fill="${colors[1] || '#ffffff'}" /></svg>`;
+        } else {
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><polygon points="0,0 ${(w*0.5).toFixed(1)},0 0,${h}" fill="${colors[1] || '#ffffff'}" /></svg>`;
+        }
+      }
+
+      function triggerRoundVictory(winner) {
+        isRoundCelebrating = true;
+        winnerFlag = winner;
+        celebrationStartTime = performance.now();
+        totalCompletedRounds++;
+
+        // Record Win in session stats
+        const existing = sessionWinsMap.get(winner.country.id) || {
+          countryId: winner.country.id,
+          countryName: winner.country.name,
+          emoji: winner.country.emoji,
+          wins: 0,
+          firstWinRound: totalCompletedRounds
+        };
+        existing.wins += 1;
+        sessionWinsMap.set(winner.country.id, existing);
+
+        // Show Winner Banner with crisp flag & Champion recognition
+        if (winner.country.id === userChampionId) {
+          if ('vibrate' in navigator) {
+            try { navigator.vibrate([80, 50, 100, 50, 150]); } catch (e) {}
+          }
+          winnerTitle.innerHTML = `
+            <div style="font-size: 11.5px; color: #854d0e; font-weight: 800; margin-bottom: 2px;">⭐ YOUR CHAMPION WON!</div>
+            ${getMiniFlagSvg(winner.country, 26, 17)} <span style="margin-left:6px;">${winner.country.name} Champions the Round!</span>
+          `;
+          spawnFirecrackerBurst(arenaCenterX, arenaCenterY, 120);
+        } else {
+          winnerTitle.innerHTML = `${getMiniFlagSvg(winner.country, 26, 17)} <span style="margin-left:6px;">${winner.country.name} Wins the Round!</span>`;
+        }
+        winnerBanner.classList.add('visible');
+
+        // Audio celebration
+        playFirecrackerPop();
+        setTimeout(playFirecrackerPop, 280);
+        setTimeout(playFirecrackerPop, 600);
+        playWinnerApplause();
+
+        // Female TTS Announcement
+        speakAnnouncement(`${winner.country.name} is the winner!`);
+
+        // Spawn confetti / firecrackers around arena center
+        spawnFirecrackerBurst(arenaCenterX, arenaCenterY, 80);
+        setTimeout(() => spawnFirecrackerBurst(arenaCenterX, arenaCenterY, 60), 400);
+
+        // Auto reset arena after 2.5s celebration pause
+        let remainingSeconds = 2.5;
+        const countdownInterval = setInterval(() => {
+          remainingSeconds -= 0.5;
+          if (remainingSeconds > 0) {
+            nextRoundTimer.textContent = `Next round starting in ${remainingSeconds.toFixed(1)}s...`;
+          } else {
+            clearInterval(countdownInterval);
+          }
+        }, 500);
+
+        setTimeout(() => {
+          clearInterval(countdownInterval);
+          if (isSessionActive) {
+            currentRound++;
+            setupNewRound(true);
+          }
+        }, CELEBRATION_PAUSE_MS);
+      }
+
+      // Visual Elimination Toast (No Voice Clutter)
+      function showEliminationToast(country) {
+        const toast = document.createElement('div');
+        toast.className = 'elimination-toast';
+        toast.innerHTML = `${getMiniFlagSvg(country, 20, 13)}<span style="margin-left:5px;">${country.name} eliminated!</span>`;
+        eliminationZone.appendChild(toast);
+
+        setTimeout(() => {
+          if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+          }
+        }, 1400);
+      }
+
+      // Add to Bottom Dock / Graveyard
+      function addFlagToDock(country) {
+        eliminatedFlagsDock.push(country);
+        if (dockEmptyHint.parentNode) {
+          dockEmptyHint.style.display = 'none';
+        }
+
+        const chip = document.createElement('div');
+        chip.className = 'dock-chip';
+        chip.style.cursor = 'pointer';
+        chip.title = `Tap to back ${country.name}`;
+        chip.innerHTML = `
+          <span class="chip-rank">#${eliminatedFlagsDock.length}</span>
+          ${getMiniFlagSvg(country, 16, 11)}
+          <span style="margin-left:2px;">${country.code}</span>
+        `;
+        chip.addEventListener('click', () => {
+          selectChampion(country);
+        });
+        dockScroll.appendChild(chip);
+        dockScroll.scrollLeft = dockScroll.scrollWidth;
+
+        dockCountText.textContent = `${eliminatedFlagsDock.length} / ${activeFlags.length}`;
+      }
+
+      // Trigger Power-up Event
+      function triggerRandomPowerup() {
+        const remaining = activeFlags.filter(f => !f.isEliminated);
+        if (remaining.length <= 2) return;
+
+        const targetFlag = remaining[Math.floor(Math.random() * remaining.length)];
+        const isShield = Math.random() > 0.5;
+
+        if (isShield) {
+          targetFlag.hasShield = true;
+          targetFlag.shieldTimer = 7.0;
+          playShieldSound();
+          powerupToast.textContent = `🛡️ Magic Shield activated for ${targetFlag.country.name}!`;
+          speakAnnouncement('Magic Shield activated!');
+        } else {
+          targetFlag.hasSpeedBoost = true;
+          targetFlag.speedBoostTimer = 6.0;
+          playSpeedBoostSound();
+          powerupToast.textContent = `⚡ Speed Boost for ${targetFlag.country.name}!`;
+          speakAnnouncement('Speed Boost!');
+        }
+
+        powerupToast.classList.add('show');
+        setTimeout(() => {
+          powerupToast.classList.remove('show');
+        }, 2200);
+      }
+
+      // Summary Modal Logic
+      function openSummaryModal() {
+        modalRoundsVal.textContent = totalCompletedRounds;
+        modalDurationVal.textContent = formatSessionTime(sessionElapsedSeconds);
+
+        // Compute top 10 winners
+        const top10 = computeLeaderboard(sessionWinsMap);
+        modalLeaderboardList.innerHTML = '';
+
+        if (top10.length === 0) {
+          modalLeaderboardList.innerHTML = '<div class="leaderboard-empty">No winners recorded in this session.</div>';
+        } else {
+          top10.forEach((record, index) => {
+            const country = COUNTRIES.find(c => c.id === record.countryId);
+            const row = document.createElement('div');
+            row.className = `leaderboard-row ${index === 0 ? 'rank-1' : ''}`;
+            const medal = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `#${index + 1}`;
+            row.innerHTML = `
+              <span class="leaderboard-rank">${medal}</span>
+              <span class="leaderboard-flag">${getMiniFlagSvg(country, 22, 14)}</span>
+              <span class="leaderboard-name">${record.countryName}</span>
+              <span class="leaderboard-wins">${record.wins} win${record.wins > 1 ? 's' : ''}</span>
+            `;
+            modalLeaderboardList.appendChild(row);
+          });
+        }
+
+        summaryModal.classList.add('open');
+      }
+
+      function closeSummaryModal() {
+        summaryModal.classList.remove('open');
+
+        // Reset session tallies
+        sessionElapsedSeconds = 0;
+        sessionTimerText.textContent = '00:00';
+        currentRound = 1;
+        totalCompletedRounds = 0;
+        sessionWinsMap.clear();
+
+        // Reset button to Start
+        sessionBtn.textContent = 'Start';
+        sessionBtn.className = 'btn-session start';
+        sessionBtn.setAttribute('data-start', 'true');
+        document.body.dataset.state = 'idle';
+
+        // Return arena to idle
+        setupNewRound(false);
+      }
+
+      // ==========================================
+      // SIMULATION & RENDERING LOOP
+      // ==========================================
+      function resizeCanvas() {
+        const wrap = document.getElementById('arenaWrap');
+        if (!wrap) return;
+        const rect = wrap.getBoundingClientRect();
+        if (rect.width <= 0 || rect.height <= 0) return;
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+        canvas.width = Math.floor(rect.width * dpr);
+        canvas.height = Math.floor(rect.height * dpr);
+        canvas.style.width = rect.width + 'px';
+        canvas.style.height = rect.height + 'px';
+        ctx.resetTransform();
+        ctx.scale(dpr, dpr);
+
+        const oldCenterX = arenaCenterX;
+        const oldCenterY = arenaCenterY;
+        const newCenterX = rect.width / 2;
+        const newCenterY = rect.height / 2;
+        arenaCenterX = newCenterX;
+        arenaCenterY = newCenterY;
+
+        const shiftX = newCenterX - oldCenterX;
+        const shiftY = newCenterY - oldCenterY;
+
+        // Wide circular arena inside the fixed 9:16 mobile viewport
+        const maxRadius = Math.min(rect.width * 0.485, rect.height * 0.465) - 2;
+        arenaRadius = Math.max(110, maxRadius);
+
+        // Position compact 3-blade fans relative to wider arena
+        obstacle1.x = arenaCenterX - arenaRadius * 0.35;
+        obstacle1.y = arenaCenterY - arenaRadius * 0.22;
+        obstacle1.length = arenaRadius * 0.19; // Decreased size for free interior space
+        obstacle1.bladeWidth = 6;
+
+        obstacle2.x = arenaCenterX + arenaRadius * 0.35;
+        obstacle2.y = arenaCenterY + arenaRadius * 0.22;
+        obstacle2.length = arenaRadius * 0.19; // Decreased size for free interior space
+        obstacle2.bladeWidth = 6;
+
+        // Shift and keep active flags comfortably inside bounds upon resize
+        for (const flag of activeFlags) {
+          if (flag.isEliminated) continue;
+          if (Math.abs(shiftX) > 0.1 || Math.abs(shiftY) > 0.1) {
+            flag.x += shiftX;
+            flag.y += shiftY;
+          }
+          const dx = flag.x - arenaCenterX;
+          const dy = flag.y - arenaCenterY;
+          const dist = Math.hypot(dx, dy);
+          const maxD = arenaRadius - flag.radius - 2;
+          if (dist > maxD && dist > 0) {
+            flag.x = arenaCenterX + (dx / dist) * maxD;
+            flag.y = arenaCenterY + (dy / dist) * maxD;
+          }
+        }
+      }
+
+      window.addEventListener('resize', resizeCanvas);
+      if (typeof ResizeObserver !== 'undefined') {
+        const ro = new ResizeObserver(() => {
+          resizeCanvas();
+        });
+        const wrapTarget = document.getElementById('arenaWrap');
+        if (wrapTarget) ro.observe(wrapTarget);
+      }
+
+      function loop(timestamp) {
+        const rawDt = (timestamp - lastFrameTime) / 1000;
+        lastFrameTime = timestamp;
+        const dt = Math.min(rawDt, 0.05); // Clamped simulation step
+
+        // Update Sim
+        update(dt);
+
+        // Render Frame
+        render();
+
+        animationFrameId = requestAnimationFrame(loop);
+      }
+
+      function update(dt) {
+        // Idle State Speed: 0.5x speed during idle / pre-start preview; active gameplay speed (default 0.5x) during session
+        const speedMult = isSessionActive ? simSpeed : 0.5;
+        const simDt = dt * speedMult;
+
+        // Rotate Arena Ring
+        ringRotation += ringSpeed * simDt;
+
+        // Spin 3-Blade Propeller Obstacles
+        obstacle1.angle += obstacle1.speed * simDt;
+        obstacle2.angle += obstacle2.speed * simDt;
+
+        // Power-up Timer strictly when active
+        if (isSessionActive && !isRoundCelebrating) {
+          nextPowerupTimer -= simDt;
+          if (nextPowerupTimer <= 0) {
+            triggerRandomPowerup();
+            nextPowerupTimer = 14 + Math.random() * 8;
+          }
+        }
+
+        // If Winner Celebration: Glide winner to center
+        if (isRoundCelebrating && winnerFlag) {
+          winnerFlag.x += (arenaCenterX - winnerFlag.x) * dt * 4;
+          winnerFlag.y += (arenaCenterY - winnerFlag.y) * dt * 4;
+          winnerFlag.vx = 0;
+          winnerFlag.vy = 0;
+          winnerFlag.angularVelocity *= 0.9;
+        }
+
+        // Update Flag Positions
+        for (let i = 0; i < activeFlags.length; i++) {
+          activeFlags[i].update(simDt);
+        }
+
+        // Flag-to-Flag Elastic Collisions (Smoother restitution)
+        for (let i = 0; i < activeFlags.length; i++) {
+          const f1 = activeFlags[i];
+          if (f1.isEliminated) continue;
+
+          for (let j = i + 1; j < activeFlags.length; j++) {
+            const f2 = activeFlags[j];
+            if (f2.isEliminated) continue;
+
+            const collided = resolveElasticCollision(f1, f2, 0.90);
+            if (collided && Math.random() < 0.15 && isSessionActive) {
+              playBounceSound();
+            }
+          }
+        }
+
+        // Update Confetti / Firecracker Particles
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+          const p = particles[i];
+          if (p.active) {
+            p.life += dt;
+            if (p.life >= p.maxLife) {
+              p.active = false;
+              continue;
+            }
+            p.vy += 450 * dt; // Gravity
+            p.vx *= 0.98; // Air drag
+            p.x += p.vx * dt;
+            p.y += p.vy * dt;
+            p.rotation += p.rotSpeed * dt;
+            p.alpha = 1 - p.life / p.maxLife;
+          }
+        }
+      }
+
+      function render() {
+        const w = canvas.width / (window.devicePixelRatio || 1);
+        const h = canvas.height / (window.devicePixelRatio || 1);
+
+        ctx.clearRect(0, 0, w, h);
+
+        // Draw Arena Background Glow
+        const bgGrad = ctx.createRadialGradient(
+          arenaCenterX, arenaCenterY, arenaRadius * 0.1,
+          arenaCenterX, arenaCenterY, arenaRadius * 1.3
+        );
+        bgGrad.addColorStop(0, 'rgba(255, 255, 255, 0.45)');
+        bgGrad.addColorStop(0.7, 'rgba(255, 255, 255, 0.18)');
+        bgGrad.addColorStop(1, 'rgba(255, 255, 255, 0)');
+        ctx.fillStyle = bgGrad;
+        ctx.beginPath();
+        ctx.arc(arenaCenterX, arenaCenterY, arenaRadius * 1.3, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Draw Rotating Circular Ring with Strictly ONE Exit Opening
+        drawRotatingRing(ctx);
+
+        // Draw Spinning 3-Blade Fan Obstacles
+        drawPropeller(ctx, obstacle1);
+        drawPropeller(ctx, obstacle2);
+
+        // Draw Flags
+        for (let i = 0; i < activeFlags.length; i++) {
+          activeFlags[i].draw(ctx);
+        }
+
+        // Draw Confetti / Firecrackers
+        drawParticles(ctx);
+      }
+
+      function drawRotatingRing(ctx) {
+        ctx.save();
+        ctx.translate(arenaCenterX, arenaCenterY);
+
+        const normRot = normalizeAngle(ringRotation);
+        // Strictly ONE gap opening from endAngle to startAngle
+        const startAngle = normRot + gapWidth / 2;
+        const endAngle = normRot + Math.PI * 2 - gapWidth / 2;
+
+        // Outer Glow
+        ctx.shadowColor = 'rgba(37, 99, 235, 0.38)';
+        ctx.shadowBlur = 15;
+
+        // 1. Ring Track Shadow Underlay
+        ctx.beginPath();
+        ctx.arc(0, 0, arenaRadius, startAngle, endAngle, false);
+        ctx.strokeStyle = 'rgba(30, 58, 138, 0.18)';
+        ctx.lineWidth = 13;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // 2. Main Luminous White Ring (One solid continuous wall)
+        ctx.beginPath();
+        ctx.arc(0, 0, arenaRadius, startAngle, endAngle, false);
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 8.5;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // 3. Inner Neon Accent Stroke
+        ctx.beginPath();
+        ctx.arc(0, 0, arenaRadius, startAngle, endAngle, false);
+        ctx.strokeStyle = '#38bdf8';
+        ctx.lineWidth = 2.8;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+
+        // Terminals at the two edges of the single gap
+        const cap1X = Math.cos(startAngle) * arenaRadius;
+        const cap1Y = Math.sin(startAngle) * arenaRadius;
+        const cap2X = Math.cos(endAngle) * arenaRadius;
+        const cap2Y = Math.sin(endAngle) * arenaRadius;
+
+        ctx.shadowColor = '#38bdf8';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#0284c7';
+        ctx.beginPath();
+        ctx.arc(cap1X, cap1Y, 5, 0, Math.PI * 2);
+        ctx.arc(cap2X, cap2Y, 5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.beginPath();
+        ctx.arc(cap1X, cap1Y, 2.2, 0, Math.PI * 2);
+        ctx.arc(cap2X, cap2Y, 2.2, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Single Exit Opening Guide: subtle dashed red threshold across the opening
+        ctx.save();
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.7)';
+        ctx.shadowBlur = 6;
+        ctx.setLineDash([3, 4]);
+        ctx.strokeStyle = 'rgba(239, 68, 68, 0.6)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(0, 0, arenaRadius, endAngle, startAngle, false);
+        ctx.stroke();
+        ctx.restore();
+
+        // Single Floating "EXIT" Marker at the revolving opening
+        const gapCenterAngle = normRot;
+        const arrowDist = arenaRadius + 16;
+        const arrowX = Math.cos(gapCenterAngle) * arrowDist;
+        const arrowY = Math.sin(gapCenterAngle) * arrowDist;
+
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(gapCenterAngle + Math.PI / 2);
+
+        // Exit Badge Pill
+        ctx.shadowColor = 'rgba(239, 68, 68, 0.45)';
+        ctx.shadowBlur = 6;
+        ctx.fillStyle = '#ef4444';
+        ctx.beginPath();
+        ctx.roundRect(-14, -6.5, 28, 13, 6);
+        ctx.fill();
+
+        ctx.fillStyle = '#ffffff';
+        ctx.font = 'bold 7.5px var(--font-sans)';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText('EXIT', 0, 0.5);
+
+        ctx.restore();
+
+        ctx.restore();
+      }
+
+      // Redesigned Fan Obstacle: Decreased size and strictly 3 blades (wings)
+      function drawPropeller(ctx, prop) {
+        ctx.save();
+        ctx.translate(prop.x, prop.y);
+        ctx.rotate(prop.angle);
+
+        // Blade Drop Shadow
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.2)';
+        ctx.shadowBlur = 5;
+        ctx.shadowOffsetY = 2;
+
+        // 3 Aerodynamic Fan Wings (120 degrees apart / 2 * PI / 3)
+        for (let b = 0; b < 3; b++) {
+          ctx.save();
+          ctx.rotate(b * (Math.PI * 2 / 3));
+
+          // Metallic Gradient for Fan Blade
+          const grad = ctx.createLinearGradient(0, -prop.bladeWidth / 2, prop.length, prop.bladeWidth / 2);
+          grad.addColorStop(0, '#f8fafc');
+          grad.addColorStop(0.5, '#cbd5e1');
+          grad.addColorStop(1, '#94a3b8');
+
+          ctx.fillStyle = grad;
+          ctx.beginPath();
+          ctx.moveTo(3, -prop.bladeWidth * 0.4);
+          ctx.quadraticCurveTo(prop.length * 0.5, -prop.bladeWidth * 0.8, prop.length, -prop.bladeWidth * 0.2);
+          ctx.arc(prop.length, 0, prop.bladeWidth * 0.35, -Math.PI / 2, Math.PI / 2);
+          ctx.quadraticCurveTo(prop.length * 0.6, prop.bladeWidth * 0.6, 3, prop.bladeWidth * 0.4);
+          ctx.closePath();
+          ctx.fill();
+
+          // Golden Wing Tip Accent
+          ctx.fillStyle = '#f59e0b';
+          ctx.beginPath();
+          ctx.arc(prop.length - 2, 0, 1.8, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.restore();
+        }
+
+        // Center Fan Hub
+        ctx.shadowColor = 'transparent';
+        ctx.fillStyle = '#1e293b';
+        ctx.beginPath();
+        ctx.arc(0, 0, 6.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.fillStyle = '#38bdf8';
+        ctx.beginPath();
+        ctx.arc(0, 0, 3, 0, Math.PI * 2);
+        ctx.fill();
+
+        ctx.restore();
+      }
+
+      function drawParticles(ctx) {
+        for (let i = 0; i < MAX_PARTICLES; i++) {
+          const p = particles[i];
+          if (!p.active) continue;
+
+          ctx.save();
+          ctx.translate(p.x, p.y);
+          ctx.rotate(p.rotation);
+          ctx.globalAlpha = p.alpha;
+          ctx.fillStyle = p.color;
+
+          if (p.shape === 'rect') {
+            ctx.fillRect(-p.size / 2, -p.size / 2, p.size, p.size * 1.5);
+          } else {
+            ctx.beginPath();
+            ctx.arc(0, 0, p.size / 2, 0, Math.PI * 2);
+            ctx.fill();
+          }
+
+          ctx.restore();
+        }
+      }
+
+      // ==========================================
+      // KEYBOARD & AUTOSTART SUPPORT
+      // ==========================================
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          // If modal open, close it
+          if (summaryModal.classList.contains('open')) {
+            closeSummaryModal();
+            return;
+          }
+          // Otherwise toggle session
+          getAudioContext();
+          if (!isSessionActive) {
+            startSession();
+          } else {
+            stopSession();
+          }
+        } else if (e.code === 'KeyM') {
+          muteBtn.click();
+        }
+      });
+
+      // Clear active keys on blur
+      window.addEventListener('blur', () => {
+        // Clean hygiene
+      });
+
+      // Initialize
+      buildContinentChecklist();
+      resizeCanvas();
+      setupNewRound(false);
+      animationFrameId = requestAnimationFrame(loop);
+
+      // Support ?autostart=1
+      const urlParams = new URLSearchParams(window.location.search);
+      if (urlParams.get('autostart') === '1') {
+        setTimeout(() => {
+          startSession();
+        }, 200);
+      }
+    </script>
+  </body>
+</html>

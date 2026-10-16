@@ -1,0 +1,6 @@
+{
+  "name": "PJ's Flag fight",
+  "description": "Country Flag Elimination Battle Arena with physics, procedural Web Audio, continent filter, and session tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

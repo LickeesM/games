@@ -478,3 +478,10 @@ export function getNextSpeed(current: number): number {
   if (current >= 1) return 1.5;
   return 1;
 }
+
+/**
+ * Cannon Power-Up parameters: 2 shots, 0.5s interval
+ */
+export const CANNON_MAX_SHOTS = 2;
+export const CANNON_SHOT_INTERVAL = 0.5;
+

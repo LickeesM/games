@@ -1832,14 +1832,14 @@
           this.type = type; // 'shield' | 'speed' | 'bomb' | 'cannon'
           this.x = x;
           this.y = y;
-          this.radius = 12.5;
-          this.vy = 90 + Math.random() * 35; // Drops downward into the ring
-          this.vx = (Math.random() - 0.5) * 25;
+          this.radius = 9.5; // Small ball shape
+          this.vy = 175 + Math.random() * 45; // Drops downward into the ring
+          this.vx = (Math.random() - 0.5) * 35;
           this.active = true;
           this.isInside = false;
           this.age = 0;
-          // Bomb: detonates at a random moment after falling inside (3.2s - 5.0s)
-          this.fuseTime = type === 'bomb' ? (3.2 + Math.random() * 1.8) : 0;
+          // Bomb: detonates at a random moment after falling inside (2.6s - 4.4s)
+          this.fuseTime = type === 'bomb' ? (2.6 + Math.random() * 1.8) : 0;
           this.pulseAngle = Math.random() * Math.PI * 2;
         }
 
@@ -1853,13 +1853,13 @@
           const dist = Math.hypot(dx, dy);
 
           if (!this.isInside) {
-            // Accelerate downwards into the ring
-            this.vy += 140 * dt;
+            // Drop downward into the ring from just below the top header
+            this.vy += 220 * dt;
             this.y += this.vy * dt;
             this.x += this.vx * dt;
-            if (dist < arenaRadius * 0.75) {
+            if (dist < arenaRadius * 0.82) {
               this.isInside = true;
-              this.vy *= 0.35; // Soft landing deceleration to drift inside
+              this.vy *= 0.38; // Soft deceleration as it enters ring interior
             }
           } else {
             // Gentle drifting inside the ring
@@ -2141,17 +2141,21 @@
         }
       }
 
-      // Drop one power-up type at a time, releasing a cluster of 2 to 3 power-up orbs
+      // Falling Power-Up Spawn Mechanics:
+      // Power-ups spawn in a small ball shape above the arena ring at random horizontal coordinates
+      // (originating from just below the top header column) and drop downward into the ring.
+      // Drop one power-up type at a time, releasing a cluster of 2 to 3 power-up balls per drop event.
       function triggerPowerupDrop() {
         if (!isSessionActive || activeFlags.filter(f => !f.isEliminated).length <= 1) return;
 
         const chosenType = POWERUP_TYPES[Math.floor(Math.random() * POWERUP_TYPES.length)];
-        const clusterCount = Math.floor(Math.random() * 2) + 2; // 2 or 3 orbs
+        const clusterCount = Math.floor(Math.random() * 2) + 2; // Cluster of 2 to 3 balls
 
-        const startY = arenaCenterY - arenaRadius - 38;
+        // Just below the top header column (Y = 12px)
+        const startY = 12;
         for (let i = 0; i < clusterCount; i++) {
-          const startX = arenaCenterX + (Math.random() - 0.5) * (arenaRadius * 0.88);
-          const orb = new PowerupOrb(chosenType, startX, startY - i * 22);
+          const startX = arenaCenterX + (Math.random() - 0.5) * (arenaRadius * 1.35);
+          const orb = new PowerupOrb(chosenType, startX, startY - i * 20);
           activePowerups.push(orb);
         }
       }
@@ -2408,29 +2412,39 @@
           ctx.lineWidth = 1.2;
           ctx.stroke();
 
-          // Display each country's name clearly on top of its flag
+          // Flag Labels: Display each country's name clearly rendered in crisp text directly on top of its flag
           if (this.country.continent === 'Antarctica') {
             ctx.fillStyle = '#0f172a';
-            ctx.font = '900 5.8px var(--font-sans)';
+            ctx.font = '900 6px var(--font-sans)';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
             ctx.fillText('Antarctica', 0, 0);
           } else {
             const countryName = this.country.name;
-            ctx.font = 'bold 5.2px var(--font-sans)';
+            // Dynamic scaling ensures full country name is always crisp and visible
+            let fontSize = 5.4;
+            ctx.font = `bold ${fontSize}px var(--font-sans)`;
+            let measuredW = ctx.measureText(countryName).width;
+            if (measuredW > w - 3) {
+              fontSize = Math.max(3.6, ((w - 3) / measuredW) * fontSize);
+              ctx.font = `bold ${fontSize}px var(--font-sans)`;
+              measuredW = ctx.measureText(countryName).width;
+            }
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            const measuredW = ctx.measureText(countryName).width;
-            const labelW = Math.min(w - 2, measuredW + 4);
-            ctx.fillStyle = 'rgba(15, 23, 42, 0.78)';
+            const pillW = Math.min(w - 1.2, measuredW + 3.5);
+            const pillH = Math.max(5.2, fontSize + 1.8);
+            ctx.fillStyle = 'rgba(15, 23, 42, 0.82)';
             ctx.beginPath();
-            ctx.roundRect(-labelW / 2, h / 2 - 6.2, labelW, 5.4, 2.2);
+            ctx.roundRect(-pillW / 2, h / 2 - pillH - 0.5, pillW, pillH, 2.0);
             ctx.fill();
 
+            ctx.strokeStyle = 'rgba(0, 0, 0, 0.6)';
+            ctx.lineWidth = 1.0;
+            ctx.strokeText(countryName, 0, h / 2 - pillH / 2 - 0.5);
             ctx.fillStyle = '#ffffff';
-            const displayStr = measuredW > w - 4 ? this.country.code : countryName;
-            ctx.fillText(displayStr, 0, h / 2 - 3.5);
+            ctx.fillText(countryName, 0, h / 2 - pillH / 2 - 0.5);
           }
 
           // Power-up Visual Overlays
@@ -2567,6 +2581,9 @@
         // Instantiate flags
         activeFlags = eligibleCountries.map((c, idx) => new FlagEntity(c, idx, eligibleCountries.length));
         eliminatedFlagsDock = [];
+        activePowerups = [];
+        cannonProjectiles = [];
+        shockwaves = [];
 
         // Clear and reset dock display
         dockScroll.innerHTML = '';
@@ -2577,7 +2594,7 @@
         aliveCounterText.textContent = `${activeFlags.length} alive`;
         roundCounterText.textContent = `Round ${currentRound}`;
 
-        nextPowerupTimer = 8 + Math.random() * 8;
+        nextPowerupTimer = 4.0; // Primed for first falling drop event
       }
 
       function startSession() {
@@ -2618,25 +2635,13 @@
         }
       }
 
-      // Helper: Generate crisp mini vector flag SVG
+      // Helper: Generate authentic flag image via FlagCDN, or solid-white for Antarctica
       function getMiniFlagSvg(country, w = 18, h = 12) {
         if (!country) return '';
-        const colors = country.colors || ['#ffffff'];
-        if (country.flagType === 'horizontal') {
-          const sh = h / colors.length;
-          const rects = colors.map((c, i) => `<rect x="0" y="${(i * sh).toFixed(1)}" width="${w}" height="${sh.toFixed(1)}" fill="${c}" />`).join('');
-          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;">${rects}</svg>`;
-        } else if (country.flagType === 'vertical') {
-          const sw = w / colors.length;
-          const rects = colors.map((c, i) => `<rect x="${(i * sw).toFixed(1)}" y="0" width="${sw.toFixed(1)}" height="${h}" fill="${c}" />`).join('');
-          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;">${rects}</svg>`;
-        } else if (country.flagType === 'circle') {
-          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><circle cx="${w/2}" cy="${h/2}" r="${(h*0.28).toFixed(1)}" fill="${colors[1] || '#dc2626'}" /></svg>`;
-        } else if (country.flagType === 'cross') {
-          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><rect x="${(w*0.38 - 1.5).toFixed(1)}" y="0" width="3" height="${h}" fill="${colors[1] || '#ffffff'}" /><rect x="0" y="${(h/2 - 1.5).toFixed(1)}" width="${w}" height="3" fill="${colors[1] || '#ffffff'}" /></svg>`;
-        } else {
-          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.15);display:inline-block;vertical-align:middle;"><rect width="${w}" height="${h}" fill="${colors[0]}" /><polygon points="0,0 ${(w*0.5).toFixed(1)},0 0,${h}" fill="${colors[1] || '#ffffff'}" /></svg>`;
+        if (country.continent === 'Antarctica' || country.id === 'aq') {
+          return `<svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" style="border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.22);display:inline-block;vertical-align:middle;background:#ffffff;"><rect width="${w}" height="${h}" fill="#ffffff" /><text x="${w / 2}" y="${h / 2 + 1.2}" font-size="${Math.max(3.8, h * 0.42)}" font-weight="900" text-anchor="middle" fill="#0f172a" font-family="sans-serif">Antarctica</text></svg>`;
         }
+        return `<img src="https://flagcdn.com/w80/${country.id.toLowerCase()}.png" width="${w}" height="${h}" alt="${country.name}" style="object-fit:cover;border-radius:2px;box-shadow:0 0 0 1px rgba(0,0,0,0.22);display:inline-block;vertical-align:middle;" />`;
       }
 
       function triggerRoundVictory(winner) {
@@ -2743,32 +2748,41 @@
         dockCountText.textContent = `${eliminatedFlagsDock.length} / ${activeFlags.length}`;
       }
 
-      // Trigger Power-up Event
-      function triggerRandomPowerup() {
-        const remaining = activeFlags.filter(f => !f.isEliminated);
-        if (remaining.length <= 2) return;
+      // Collect Power-up: Activates power-up effect, floating text alert, and natural sweet female voice announcement
+      function collectPowerup(flag, type) {
+        if (!flag || flag.isEliminated) return;
 
-        const targetFlag = remaining[Math.floor(Math.random() * remaining.length)];
-        const isShield = Math.random() > 0.5;
-
-        if (isShield) {
-          targetFlag.hasShield = true;
-          targetFlag.shieldTimer = 7.0;
+        if (type === 'shield') {
+          // Magic Shield: Surrounds collecting flag with glowing shiny shield ring, granting one-time immunity
+          flag.hasShield = true;
           playShieldSound();
-          powerupToast.textContent = `🛡️ Magic Shield activated for ${targetFlag.country.name}!`;
-          speakAnnouncement('Magic Shield activated!');
-        } else {
-          targetFlag.hasSpeedBoost = true;
-          targetFlag.speedBoostTimer = 6.0;
+          triggerPowerupAlert(
+            `🛡️ Magic Shield activated for ${flag.country.name}!`,
+            `Magic Shield activated for ${flag.country.name}!`
+          );
+        } else if (type === 'speed') {
+          // Speed Boost: Increases movement speed to 5x pace
+          flag.hasSpeedBoost = true;
+          flag.speedBoostTimer = 6.0;
           playSpeedBoostSound();
-          powerupToast.textContent = `⚡ Speed Boost for ${targetFlag.country.name}!`;
-          speakAnnouncement('Speed Boost!');
+          triggerPowerupAlert(
+            `⚡ Speed Boost activated for ${flag.country.name}!`,
+            `Speed Boost activated for ${flag.country.name}!`
+          );
+        } else if (type === 'bomb') {
+          // Bomb detonation upon contact
+          spawnExplosionShockwave(flag.x, flag.y);
+        } else if (type === 'cannon') {
+          // Cannon: Equips 2 shots (reduced from 5 shots), fired at nearest opponent with 0.5s interval
+          flag.hasCannon = true;
+          flag.cannonShotsLeft = 2; // Strictly 2 shots
+          flag.cannonShotCooldown = 0.2; // First shot in 0.2s, then 0.5s intervals
+          playCannonEquipSound();
+          triggerPowerupAlert(
+            `🎯 Cannon equipped by ${flag.country.name}!`,
+            `Cannon equipped by ${flag.country.name}!`
+          );
         }
-
-        powerupToast.classList.add('show');
-        setTimeout(() => {
-          powerupToast.classList.remove('show');
-        }, 2200);
       }
 
       // Summary Modal Logic
@@ -2916,12 +2930,55 @@
         obstacle1.angle += obstacle1.speed * simDt;
         obstacle2.angle += obstacle2.speed * simDt;
 
-        // Power-up Timer strictly when active
+        // Falling Power-up Spawner strictly when session active
         if (isSessionActive && !isRoundCelebrating) {
           nextPowerupTimer -= simDt;
           if (nextPowerupTimer <= 0) {
-            triggerRandomPowerup();
-            nextPowerupTimer = 14 + Math.random() * 8;
+            triggerPowerupDrop();
+            nextPowerupTimer = 11 + Math.random() * 6;
+          }
+        }
+
+        // Update Falling Power-up Balls & Flag Collision Collection
+        for (let i = activePowerups.length - 1; i >= 0; i--) {
+          const orb = activePowerups[i];
+          orb.update(simDt);
+          if (!orb.active) {
+            activePowerups.splice(i, 1);
+            continue;
+          }
+
+          // Check collection by any living flag inside the ring
+          for (let f = 0; f < activeFlags.length; f++) {
+            const flag = activeFlags[f];
+            if (flag.isEliminated) continue;
+
+            const dist = Math.hypot(flag.x - orb.x, flag.y - orb.y);
+            if (dist < flag.radius + orb.radius) {
+              orb.active = false;
+              activePowerups.splice(i, 1);
+              collectPowerup(flag, orb.type);
+              break;
+            }
+          }
+        }
+
+        // Update Cannon Projectiles
+        for (let i = cannonProjectiles.length - 1; i >= 0; i--) {
+          const proj = cannonProjectiles[i];
+          proj.update(simDt);
+          if (!proj.active) {
+            cannonProjectiles.splice(i, 1);
+          }
+        }
+
+        // Update Bomb Shockwaves
+        for (let i = shockwaves.length - 1; i >= 0; i--) {
+          const sw = shockwaves[i];
+          sw.radius += sw.speed * simDt;
+          sw.alpha = Math.max(0, 1 - sw.radius / sw.maxRadius);
+          if (sw.radius >= sw.maxRadius || sw.alpha <= 0) {
+            shockwaves.splice(i, 1);
           }
         }
 
@@ -3000,9 +3057,32 @@
         drawPropeller(ctx, obstacle1);
         drawPropeller(ctx, obstacle2);
 
+        // Draw Bomb Shockwaves
+        for (const sw of shockwaves) {
+          ctx.save();
+          ctx.strokeStyle = `rgba(239, 68, 68, ${sw.alpha * 0.85})`;
+          ctx.lineWidth = 3.5;
+          ctx.shadowColor = '#ef4444';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(sw.x, sw.y, sw.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        }
+
         // Draw Flags
         for (let i = 0; i < activeFlags.length; i++) {
           activeFlags[i].draw(ctx);
+        }
+
+        // Draw Falling Power-up Balls
+        for (const orb of activePowerups) {
+          orb.draw(ctx);
+        }
+
+        // Draw Cannon Projectiles
+        for (const proj of cannonProjectiles) {
+          proj.draw(ctx);
         }
 
         // Draw Confetti / Firecrackers

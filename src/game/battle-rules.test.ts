@@ -13,6 +13,8 @@ import {
   resolveShieldAbsorption,
   computeTargetAngle,
   findNearestOpponent,
+  CANNON_MAX_SHOTS,
+  CANNON_SHOT_INTERVAL,
   COUNTRIES,
   ALL_CONTINENTS,
   type WinRecord
@@ -173,4 +175,9 @@ test('getNextSpeed cycles through 0.5x, 1x, 1.5x, 2x accurately', () => {
   assert.equal(getNextSpeed(1), 1.5);
   assert.equal(getNextSpeed(1.5), 2);
   assert.equal(getNextSpeed(2), 0.5);
+});
+
+test('cannon ammo is set to strictly 2 shots with 0.5s interval', () => {
+  assert.equal(CANNON_MAX_SHOTS, 2, 'Cannon must have exactly 2 shots');
+  assert.equal(CANNON_SHOT_INTERVAL, 0.5, 'Cannon shot interval must be 0.5 seconds');
 });

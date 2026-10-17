@@ -15,6 +15,19 @@ import {
   findNearestOpponent,
   CANNON_MAX_SHOTS,
   CANNON_SHOT_INTERVAL,
+  GUN_SHOT_MAX_SHOTS,
+  GUN_SHOT_INTERVAL,
+  FLAG_BASE_WIDTH,
+  FLAG_BASE_HEIGHT,
+  FLAG_BASE_RADIUS,
+  SpeechQueueManager,
+  computeResponsiveScale,
+  CELEBRATION_PAUSE_MS,
+  determineRoundWinner,
+  EXIT_CROSSING_THRESHOLD,
+  computeExitCrossingFraction,
+  computeDescendingEliminationRank,
+  SPEECH_RATE_FASTER,
   COUNTRIES,
   ALL_CONTINENTS,
   type WinRecord
@@ -46,20 +59,29 @@ test('continents and country datasets have exact specified counts across all 7 c
   assert.deepEqual(antarctica.colors, ['#ffffff', '#ffffff']);
 });
 
-test('checkExitGapCleared only triggers when flag body has fully cleared the ring perimeter', () => {
-  const ringRadius = 150;
-  const entityRadius = 11;
-  const outerMargin = 6;
+test('checkExitGapCleared triggers when 60% of flag body has crossed through exit opening', () => {
+  const ringRadius = 475;
+  const entityRadius = 23; // 200% scale radius
 
-  // When flag center is still on or barely past ring (e.g. dist = 155),
-  // inner edge is 155 - 11 = 144 < 156 (still passing through) -> must NOT trigger elimination
-  assert.equal(checkExitGapCleared(155, entityRadius, ringRadius, outerMargin), false);
+  assert.equal(EXIT_CROSSING_THRESHOLD, 0.60);
 
-  // When flag center is at 166, inner edge is 166 - 11 = 155 < 156 -> still touching ring!
-  assert.equal(checkExitGapCleared(166, entityRadius, ringRadius, outerMargin), false);
+  // 0% crossed (outer edge barely touching ring): dist = ringRadius - entityRadius = 452
+  assert.equal(computeExitCrossingFraction(452, entityRadius, ringRadius), 0.0);
+  assert.equal(checkExitGapCleared(452, entityRadius, ringRadius), false);
 
-  // When flag center reaches 168 (inner edge 157 > 156), body has completely cleared the outer ring!
-  assert.equal(checkExitGapCleared(168, entityRadius, ringRadius, outerMargin), true);
+  // 50% crossed (flag center right on the ring): dist = 475
+  assert.equal(computeExitCrossingFraction(475, entityRadius, ringRadius), 0.5);
+  assert.equal(checkExitGapCleared(475, entityRadius, ringRadius), false);
+
+  // 59% crossed: dist = 475 + (0.59 * 46 - 23) = 479.14 -> not yet 60%
+  assert.equal(checkExitGapCleared(479, entityRadius, ringRadius), false);
+
+  // Exactly 60% crossed: dist = 475 + 0.2 * 23 = 479.6
+  assert.ok(Math.abs(computeExitCrossingFraction(479.6, entityRadius, ringRadius) - 0.60) < 1e-6);
+  assert.equal(checkExitGapCleared(479.6, entityRadius, ringRadius), true);
+
+  // >60% crossed (e.g. dist = 485): triggers elimination immediately without waiting for 100%
+  assert.equal(checkExitGapCleared(485, entityRadius, ringRadius), true);
 });
 
 test('resolveShieldAbsorption grants one-time immunity and shatters shield', () => {
@@ -181,3 +203,149 @@ test('cannon ammo is set to strictly 2 shots with 0.5s interval', () => {
   assert.equal(CANNON_MAX_SHOTS, 2, 'Cannon must have exactly 2 shots');
   assert.equal(CANNON_SHOT_INTERVAL, 0.5, 'Cannon shot interval must be 0.5 seconds');
 });
+
+test('computeResponsiveScale uniformly scales 1080x1920 layout to any screen aspect ratio', () => {
+  // Exact 1080x1920 viewport
+  assert.equal(computeResponsiveScale(1080, 1920), 1.0);
+  // Half scale 540x960
+  assert.equal(computeResponsiveScale(540, 960), 0.5);
+  // Desktop wide screen 1920x1080 (constrained by height)
+  assert.equal(computeResponsiveScale(1920, 1080), 1080 / 1920);
+  // Narrow phone 360x800 (constrained by width)
+  assert.equal(computeResponsiveScale(360, 800), 360 / 1080);
+  // Zero / negative safeguard
+  assert.equal(computeResponsiveScale(500, 500, 0, 0), 1);
+});
+
+test('continuous multi-round loop auto-progression and winner resolution', () => {
+  assert.equal(CELEBRATION_PAUSE_MS, 2500, 'Celebration pause should be exactly 2.5 seconds');
+
+  const flags = [
+    { id: 'ca', isEliminated: false },
+    { id: 'mx', isEliminated: true },
+    { id: 'us', isEliminated: true },
+  ];
+  const dock = [
+    { id: 'us', isEliminated: true },
+    { id: 'mx', isEliminated: true },
+  ];
+
+  // 1 remaining flag -> clear winner
+  const outcome1 = determineRoundWinner(flags, dock);
+  assert.equal(outcome1.hasWinner, true);
+  assert.equal(outcome1.winner?.id, 'ca');
+
+  // >1 remaining flags -> round in progress
+  flags[1].isEliminated = false;
+  const outcome2 = determineRoundWinner(flags, dock);
+  assert.equal(outcome2.hasWinner, false);
+  assert.equal(outcome2.winner, null);
+
+  // 0 remaining flags (simultaneous elimination) -> last eliminated flag in dock wins
+  flags[0].isEliminated = true;
+  flags[1].isEliminated = true;
+  const outcome3 = determineRoundWinner(flags, dock);
+  assert.equal(outcome3.hasWinner, true);
+  assert.equal(outcome3.winner?.id, 'mx');
+});
+
+test('double flag sizing (200% scale) doubles dimensions and collision radius proportionally', () => {
+  // Original dimensions were: width=30, height=19, radius=11.5
+  assert.equal(FLAG_BASE_WIDTH, 60, 'Flag width scaled 200% should be 60');
+  assert.equal(FLAG_BASE_HEIGHT, 38, 'Flag height scaled 200% should be 38');
+  assert.equal(FLAG_BASE_RADIUS, 23, 'Flag collision radius scaled 200% should be 23');
+  assert.equal(FLAG_BASE_WIDTH, 30 * 2);
+  assert.equal(FLAG_BASE_HEIGHT, 19 * 2);
+  assert.equal(FLAG_BASE_RADIUS, 11.5 * 2);
+});
+
+test('gun shot power-up parameters and naming', () => {
+  assert.equal(GUN_SHOT_MAX_SHOTS, 2);
+  assert.equal(GUN_SHOT_INTERVAL, 0.5);
+  assert.equal(CANNON_MAX_SHOTS, 2);
+});
+
+test('SpeechQueueManager processes announcements sequentially without skipping or dropping messages', () => {
+  const manager = new SpeechQueueManager();
+  assert.equal(manager.length, 0);
+  assert.equal(manager.busy, false);
+
+  // 3 events triggering simultaneously (e.g., power-up activations and winner call)
+  manager.enqueue('Gun Shot activated for France!');
+  manager.enqueue('Magic Shield activated for Japan!');
+  manager.enqueue('Canada is the winner!');
+
+  assert.equal(manager.length, 3);
+  assert.equal(manager.dequeue(), 'Gun Shot activated for France!');
+  assert.equal(manager.length, 2);
+
+  manager.setBusy(true);
+  assert.equal(manager.busy, true);
+
+  assert.equal(manager.dequeue(), 'Magic Shield activated for Japan!');
+  assert.equal(manager.dequeue(), 'Canada is the winner!');
+  assert.equal(manager.dequeue(), null);
+  assert.equal(manager.length, 0);
+
+  // Clear resets state
+  manager.enqueue('Test voice');
+  manager.clear();
+  assert.equal(manager.length, 0);
+  assert.equal(manager.busy, false);
+});
+
+test('computeDescendingEliminationRank tracks elimination positions in countdown order (e.g. 9, 8, 7, 6, 5, 4, 3, 2, 1 / Winner)', () => {
+  const totalFlags = 9;
+
+  // 1st elimination (0 eliminated before it): rank 9
+  assert.equal(computeDescendingEliminationRank(totalFlags, 0), 9);
+
+  // 2nd elimination (1 eliminated before it): rank 8
+  assert.equal(computeDescendingEliminationRank(totalFlags, 1), 8);
+
+  // 3rd elimination: rank 7
+  assert.equal(computeDescendingEliminationRank(totalFlags, 2), 7);
+
+  // 4th elimination: rank 6
+  assert.equal(computeDescendingEliminationRank(totalFlags, 3), 6);
+
+  // 5th elimination: rank 5
+  assert.equal(computeDescendingEliminationRank(totalFlags, 4), 5);
+
+  // 6th elimination: rank 4
+  assert.equal(computeDescendingEliminationRank(totalFlags, 5), 4);
+
+  // 7th elimination: rank 3
+  assert.equal(computeDescendingEliminationRank(totalFlags, 6), 3);
+
+  // 8th elimination (2 flags left, 1 dies): rank 2
+  assert.equal(computeDescendingEliminationRank(totalFlags, 7), 2);
+
+  // Surviving 1 flag is position 1 (Winner)
+  assert.equal(computeDescendingEliminationRank(totalFlags, 8), 1);
+});
+
+test('faster speech queue and priority preemption with immediate flush on winner', () => {
+  assert.equal(SPEECH_RATE_FASTER, 1.50);
+
+  const manager = new SpeechQueueManager();
+  manager.enqueue('Shield activated for Brazil');
+  manager.enqueue('Speed boost for Norway');
+
+  // Backed flag gets eliminated -> immediate urgent priority
+  manager.enqueuePriority('Oh no! Backing flag Japan got eliminated at position 4!');
+  assert.equal(manager.length, 3);
+  assert.equal(manager.dequeue(), 'Oh no! Backing flag Japan got eliminated at position 4!');
+
+  // When round winner is decided -> immediately flush/clear all pending queued messages
+  manager.clear();
+  assert.equal(manager.length, 0);
+
+  // And announce winner right away
+  manager.enqueue('Japan is the winner!');
+  assert.equal(manager.length, 1);
+  assert.equal(manager.dequeue(), 'Japan is the winner!');
+});
+
+
+

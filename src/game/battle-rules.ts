@@ -362,18 +362,37 @@ export function isAngleInGap(
 }
 
 /**
- * Checks whether a flag body has fully passed through the exit gap
- * and completely cleared the outer perimeter ring thickness.
- * Elimination only triggers after this check returns true.
+ * Computes the fraction of an entity body (0.0 to 1.0) that has crossed through the ring perimeter.
+ * 0.0 = outer edge just touches ring
+ * 0.5 = center on ring
+ * 1.0 = entire body cleared ring
  */
+export function computeExitCrossingFraction(
+  entityDist: number,
+  entityRadius: number,
+  ringRadius: number
+): number {
+  if (entityRadius <= 0) return 1;
+  const crossedDist = entityDist + entityRadius - ringRadius;
+  return Math.max(0, Math.min(1, crossedDist / (2 * entityRadius)));
+}
+
+/**
+ * 60% Exit Threshold for Elimination:
+ * Eliminate a flag the moment roughly 60% of its body has crossed through the exit gap,
+ * without waiting for 100% full clearance.
+ */
+export const EXIT_CROSSING_THRESHOLD = 0.60;
+
 export function checkExitGapCleared(
   entityDist: number,
   entityRadius: number,
   ringRadius: number,
-  outerPerimeterMargin: number = 6
+  thresholdFraction: number = EXIT_CROSSING_THRESHOLD
 ): boolean {
-  // Inner edge of flag (entityDist - entityRadius) must exceed the ring radius + margin
-  return (entityDist - entityRadius) >= (ringRadius + outerPerimeterMargin);
+  if (entityRadius <= 0) return entityDist >= ringRadius;
+  const crossedDist = entityDist + entityRadius - ringRadius;
+  return (crossedDist / (2 * entityRadius)) >= thresholdFraction;
 }
 
 /**
@@ -480,8 +499,122 @@ export function getNextSpeed(current: number): number {
 }
 
 /**
- * Cannon Power-Up parameters: 2 shots, 0.5s interval
+ * Flag dimensions: 200% Scale (doubled from previous 30x19, radius 11.5)
  */
-export const CANNON_MAX_SHOTS = 2;
-export const CANNON_SHOT_INTERVAL = 0.5;
+export const FLAG_BASE_WIDTH = 60;
+export const FLAG_BASE_HEIGHT = 38;
+export const FLAG_BASE_RADIUS = 23;
 
+/**
+ * Gun Shot (formerly Cannon) Power-Up parameters: 2 shots, 0.5s interval
+ */
+export const GUN_SHOT_MAX_SHOTS = 2;
+export const GUN_SHOT_INTERVAL = 0.5;
+export const CANNON_MAX_SHOTS = 2; // Alias for backward compatibility
+export const CANNON_SHOT_INTERVAL = 0.5; // Alias for backward compatibility
+
+/**
+ * Computes elimination position in descending countdown order toward the finale.
+ * (e.g., in a round of N flags: 9, 8, 7, 6, 5, 4, 3, 2, 1 / Winner)
+ *
+ * @param totalRoundFlags Total flags that started in the active round
+ * @param alreadyEliminatedCount Number of flags already eliminated before this one
+ */
+export function computeDescendingEliminationRank(
+  totalRoundFlags: number,
+  alreadyEliminatedCount: number
+): number {
+  return Math.max(1, totalRoundFlags - alreadyEliminatedCount);
+}
+
+/**
+ * Faster Speech Queue constants (around 1.45x–1.55x, virtually zero delay)
+ */
+export const SPEECH_RATE_FASTER = 1.50;
+export const SPEECH_INTER_MESSAGE_DELAY_MS = 12;
+
+/**
+ * Sequential Speech Queue Manager to prevent cutting off or skipping
+ * overlapping voice announcements, with immediate priority preemption.
+ */
+export class SpeechQueueManager {
+  private queue: string[] = [];
+  private isSpeaking: boolean = false;
+
+  enqueue(text: string): boolean {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    this.queue.push(trimmed);
+    return true;
+  }
+
+  enqueuePriority(text: string): boolean {
+    if (!text || typeof text !== 'string') return false;
+    const trimmed = text.trim();
+    if (!trimmed) return false;
+    this.queue.unshift(trimmed);
+    return true;
+  }
+
+  dequeue(): string | null {
+    if (this.queue.length === 0) return null;
+    return this.queue.shift() || null;
+  }
+
+  get length(): number {
+    return this.queue.length;
+  }
+
+  get busy(): boolean {
+    return this.isSpeaking;
+  }
+
+  setBusy(busy: boolean): void {
+    this.isSpeaking = busy;
+  }
+
+  clear(): void {
+    this.queue = [];
+    this.isSpeaking = false;
+  }
+}
+
+/**
+ * Computes uniform scaling factor to fit reference resolution (1080x1920) inside any window.
+ */
+export function computeResponsiveScale(
+  windowWidth: number,
+  windowHeight: number,
+  baseWidth: number = 1080,
+  baseHeight: number = 1920
+): number {
+  if (baseWidth <= 0 || baseHeight <= 0) return 1;
+  const scaleX = windowWidth / baseWidth;
+  const scaleY = windowHeight / baseHeight;
+  return Math.min(scaleX, scaleY);
+}
+
+/**
+ * Celebration pause duration in milliseconds before automatically starting the next round.
+ */
+export const CELEBRATION_PAUSE_MS = 2500;
+
+/**
+ * Determines whether a round has completed and resolves the winner,
+ * ensuring continuous multi-round progression even in edge-case simultaneous eliminations.
+ */
+export function determineRoundWinner<T extends { id?: string; isEliminated: boolean }>(
+  activeFlags: T[],
+  eliminatedOrder: T[] = []
+): { hasWinner: boolean; winner: T | null } {
+  const remaining = activeFlags.filter((f) => !f.isEliminated);
+  if (remaining.length === 1) {
+    return { hasWinner: true, winner: remaining[0] };
+  }
+  if (remaining.length === 0 && activeFlags.length > 0) {
+    const last = eliminatedOrder.length > 0 ? eliminatedOrder[eliminatedOrder.length - 1] : null;
+    return { hasWinner: true, winner: last || activeFlags[0] };
+  }
+  return { hasWinner: false, winner: null };
+}

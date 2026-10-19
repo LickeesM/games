@@ -528,10 +528,26 @@ export function computeDescendingEliminationRank(
 }
 
 /**
- * Faster Speech Queue constants (around 1.45x–1.55x, virtually zero delay)
+ * Measured, crystal-clear speech pace constants (around 0.85x–0.95x for natural clarity,
+ * avoiding extreme slow-motion distortion, with virtually zero delay between consecutive messages)
  */
-export const SPEECH_RATE_FASTER = 1.50;
-export const SPEECH_INTER_MESSAGE_DELAY_MS = 12;
+export const SPEECH_RATE_MEASURED = 0.92;
+export const SPEECH_RATE_FASTER = 0.92; // Backward compatible alias
+export const SPEECH_INTER_MESSAGE_DELAY_MS = 10;
+
+/**
+ * Formats the female voice speech line for backed flag knockout
+ */
+export function formatBackingFlagEliminationSpeech(countryName: string, rank: number): string {
+  return `Oh no! Backing flag ${countryName} got eliminated at ${rank}!`;
+}
+
+/**
+ * Formats the on-screen pinned banner text for backed flag knockout
+ */
+export function formatBackingFlagEliminationBanner(countryName: string, rank: number): string {
+  return `Oh no! Backing flag ${countryName} got eliminated at #${rank}!`;
+}
 
 /**
  * Sequential Speech Queue Manager to prevent cutting off or skipping

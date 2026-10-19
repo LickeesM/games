@@ -28,6 +28,9 @@ import {
   computeExitCrossingFraction,
   computeDescendingEliminationRank,
   SPEECH_RATE_FASTER,
+  SPEECH_RATE_MEASURED,
+  formatBackingFlagEliminationSpeech,
+  formatBackingFlagEliminationBanner,
   COUNTRIES,
   ALL_CONTINENTS,
   type WinRecord
@@ -325,17 +328,23 @@ test('computeDescendingEliminationRank tracks elimination positions in countdown
   assert.equal(computeDescendingEliminationRank(totalFlags, 8), 1);
 });
 
-test('faster speech queue and priority preemption with immediate flush on winner', () => {
-  assert.equal(SPEECH_RATE_FASTER, 1.50);
+test('measured speech queue rate and priority preemption with immediate flush on winner', () => {
+  assert.equal(SPEECH_RATE_MEASURED, 0.92);
+  assert.ok(SPEECH_RATE_MEASURED >= 0.85 && SPEECH_RATE_MEASURED <= 0.95);
+  assert.equal(SPEECH_RATE_FASTER, 0.92);
 
   const manager = new SpeechQueueManager();
   manager.enqueue('Shield activated for Brazil');
   manager.enqueue('Speed boost for Norway');
 
   // Backed flag gets eliminated -> immediate urgent priority
-  manager.enqueuePriority('Oh no! Backing flag Japan got eliminated at position 4!');
+  const speechText = formatBackingFlagEliminationSpeech('Japan', 4);
+  assert.equal(speechText, 'Oh no! Backing flag Japan got eliminated at 4!');
+  assert.equal(formatBackingFlagEliminationBanner('Japan', 4), 'Oh no! Backing flag Japan got eliminated at #4!');
+
+  manager.enqueuePriority(speechText);
   assert.equal(manager.length, 3);
-  assert.equal(manager.dequeue(), 'Oh no! Backing flag Japan got eliminated at position 4!');
+  assert.equal(manager.dequeue(), 'Oh no! Backing flag Japan got eliminated at 4!');
 
   // When round winner is decided -> immediately flush/clear all pending queued messages
   manager.clear();
